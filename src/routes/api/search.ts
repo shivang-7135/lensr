@@ -27,8 +27,9 @@ export const Route = createFileRoute("/api/search")({
           });
         }
 
-        const backendUrl = process.env.BACKEND_BASE_URL;
+        const rawBackend = process.env.BACKEND_BASE_URL;
         const backendSecret = process.env.BACKEND_SHARED_SECRET;
+        const backendUrl = isValidHttpUrl(rawBackend) ? rawBackend! : null;
 
         if (backendUrl) {
           // Proxy SSE from Python backend

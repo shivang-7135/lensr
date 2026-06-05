@@ -23,7 +23,7 @@ export function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-1 sm:gap-3 text-sm">
           <Link to="/insta" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Insta</Link>
-          <Link to="/saved" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Saved</Link>
+          <Link to="/_authenticated/saved" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Saved</Link>
           {email ? (
             <button
               onClick={() => supabase.auth.signOut()}

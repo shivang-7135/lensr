@@ -163,6 +163,16 @@ async function streamMockAgent(query: string): Promise<Response> {
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
 
+function isValidHttpUrl(value: string | undefined | null): boolean {
+  if (!value) return false;
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 function classifyMock(q: string): "shopping" | "price_history" | "trip" | "insta" | "general" {
   const s = q.toLowerCase();
   if (/price\s+(history|of)|when.*(cheap|drop|sale)/.test(s)) return "price_history";

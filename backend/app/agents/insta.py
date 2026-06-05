@@ -1,70 +1,67 @@
-"""Instagram caption + place recommendations.
-
-If the query includes an image URL, the vision model describes the scene. Otherwise
-we fall back to text-only caption suggestions. Place lookup uses Serper.
-"""
+"""Instagram caption + place recommendations with optional image vision."""
 from __future__ import annotations
 import re
+import json
 from langchain_core.messages import HumanMessage, SystemMessage
-from ._base import AgentState
-from ..llm import vision_llm, reasoning_llm
-from ..tools.serper import google_search
+from ._pipeline import IntentConfig, run_pipeline, _text, _parse_json
+from ..llm import vision_llm
 
 URL_RE = re.compile(r"https?://\S+")
 
 VISION_SYS = (
-    "Describe the scene in 2 short sentences (place type, mood, key objects). "
-    "Then on a new line, output 5 short Google search queries to find similar/nearby spots. "
-    "Format:\nSCENE: ...\nQUERIES:\n- ...\n- ..."
-)
-
-CAPTION_SYS = (
-    "Write 3 Instagram caption options (Witty / Poetic / Minimal) and 8 relevant hashtags. "
-    "Markdown only. Keep each caption under 200 chars."
+    "Describe the image precisely. Return ONLY JSON: "
+    '{"scene": "2 sentences", "mood": "string", "objects": ["..."], '
+    '"place_type": "string", "search_queries": ["5 short google queries for similar/nearby spots"]}'
 )
 
 
-async def run(state) -> AgentState:
-    q = state["query"]
-    url_match = URL_RE.search(q)
-    scene = q
-    queries: list[str] = [q]
+CONFIG = IntentConfig(
+    name="insta",
+    system_prompt=(
+        "You are a creative Instagram copy expert. Write captions that match the scene's mood. "
+        "Use the evidence to recommend real similar/nearby places."
+    ),
+    schema_hint=(
+        '{"tldr": "string", "scene": "string", "mood": "string", '
+        '"captions": [{"style":"witty|poetic|minimal|playful","text":"string","hashtag_count":3}], '
+        '"hashtags": ["#..."], '
+        '"place_suggestions": [{"name":"...","why":"...","url":"..."}], '
+        '"detail_markdown": "string"}'
+    ),
+    plan_hint="Plan queries to find similar or nearby photogenic spots that match the scene/mood.",
+    seed_queries=lambda q: [q, f"best places like {q}", f"{q} photo spots", f"instagrammable {q}"],
+)
 
-    if url_match:
-        vllm = vision_llm()
-        msg = await vllm.ainvoke([
-            SystemMessage(VISION_SYS),
-            HumanMessage(content=[
-                {"type": "text", "text": "Analyze this image:"},
-                {"type": "image_url", "image_url": {"url": url_match.group(0)}},
-            ]),
-        ])
-        text = msg.content if isinstance(msg.content, str) else str(msg.content)
-        scene = text.split("QUERIES:")[0].replace("SCENE:", "").strip() or q
-        if "QUERIES:" in text:
-            queries = [
-                line.lstrip("-• ").strip()
-                for line in text.split("QUERIES:")[1].splitlines()
-                if line.strip().startswith(("-", "•"))
-            ][:5] or [q]
 
-    # Caption
-    cap_msg = await reasoning_llm().ainvoke([
-        SystemMessage(CAPTION_SYS),
-        HumanMessage(f"Scene: {scene}"),
+async def _vision_extract(image_url: str) -> dict:
+    msg = await vision_llm().ainvoke([
+        SystemMessage(VISION_SYS),
+        HumanMessage(content=[
+            {"type": "text", "text": "Analyze this image:"},
+            {"type": "image_url", "image_url": {"url": image_url}},
+        ]),
     ])
-    captions = cap_msg.content if isinstance(cap_msg.content, str) else str(cap_msg.content)
+    return _parse_json(_text(msg)) or {}
 
-    # Places
-    sources: list[dict] = []
-    seen = set()
-    for sq in queries[:3]:
-        for r in await google_search(sq, num=4):
-            if r["link"] in seen:
-                continue
-            seen.add(r["link"])
-            sources.append({"title": r["title"], "url": r["link"]})
 
-    places_md = "\n".join(f"- [{s['title']}]({s['url']})" for s in sources[:6])
-    answer = f"## Scene\n{scene}\n\n## Captions & hashtags\n{captions}\n\n## Place ideas\n{places_md or '_No place suggestions found._'}"
-    return {"answer": answer, "sources": sources[:6]}
+async def run_stream(query: str):
+    url_match = URL_RE.search(query)
+    if url_match:
+        image_url = url_match.group(0)
+        yield {"type": "stage", "stage": "vision"}
+        scene_data = await _vision_extract(image_url)
+        yield {"type": "vision_result", "scene": scene_data}
+        # Rebuild query for the pipeline: use scene + mood as the planning text
+        scene_text = scene_data.get("scene") or query
+        # Append search_queries as hints by prepending into query
+        enriched_query = (
+            f"{scene_text}\nMood: {scene_data.get('mood','')}\n"
+            f"Place type: {scene_data.get('place_type','')}\n"
+            f"Hints: {', '.join(scene_data.get('search_queries', []))}"
+        )
+        async for evt in run_pipeline(enriched_query, CONFIG):
+            yield evt
+        return
+
+    async for evt in run_pipeline(query, CONFIG):
+        yield evt

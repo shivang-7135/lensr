@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          description: string | null
+          name: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          description?: string | null
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Update: {
+          description?: string | null
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

@@ -16,6 +16,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as AuthenticatedSavedRouteImport } from './routes/_authenticated/saved'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as ApiPublicBackendKeysRouteImport } from './routes/api/public/backend-keys'
 
 const ResultsRoute = ResultsRouteImport.update({
   id: '/results',
@@ -51,22 +53,36 @@ const AuthenticatedSavedRoute = AuthenticatedSavedRouteImport.update({
   path: '/saved',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicBackendKeysRoute = ApiPublicBackendKeysRouteImport.update({
+  id: '/api/public/backend-keys',
+  path: '/api/public/backend-keys',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/insta': typeof InstaRoute
   '/results': typeof ResultsRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/saved': typeof AuthenticatedSavedRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/public/backend-keys': typeof ApiPublicBackendKeysRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/insta': typeof InstaRoute
   '/results': typeof ResultsRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/saved': typeof AuthenticatedSavedRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/public/backend-keys': typeof ApiPublicBackendKeysRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -75,14 +91,32 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/insta': typeof InstaRoute
   '/results': typeof ResultsRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/saved': typeof AuthenticatedSavedRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/public/backend-keys': typeof ApiPublicBackendKeysRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/insta' | '/results' | '/saved' | '/api/search'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/insta'
+    | '/results'
+    | '/admin'
+    | '/saved'
+    | '/api/search'
+    | '/api/public/backend-keys'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/insta' | '/results' | '/saved' | '/api/search'
+  to:
+    | '/'
+    | '/auth'
+    | '/insta'
+    | '/results'
+    | '/admin'
+    | '/saved'
+    | '/api/search'
+    | '/api/public/backend-keys'
   id:
     | '__root__'
     | '/'
@@ -90,8 +124,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/insta'
     | '/results'
+    | '/_authenticated/admin'
     | '/_authenticated/saved'
     | '/api/search'
+    | '/api/public/backend-keys'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -101,6 +137,7 @@ export interface RootRouteChildren {
   InstaRoute: typeof InstaRoute
   ResultsRoute: typeof ResultsRoute
   ApiSearchRoute: typeof ApiSearchRoute
+  ApiPublicBackendKeysRoute: typeof ApiPublicBackendKeysRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -154,14 +191,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSavedRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/backend-keys': {
+      id: '/api/public/backend-keys'
+      path: '/api/public/backend-keys'
+      fullPath: '/api/public/backend-keys'
+      preLoaderRoute: typeof ApiPublicBackendKeysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedSavedRoute: typeof AuthenticatedSavedRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedSavedRoute: AuthenticatedSavedRoute,
 }
 
@@ -175,17 +228,8 @@ const rootRouteChildren: RootRouteChildren = {
   InstaRoute: InstaRoute,
   ResultsRoute: ResultsRoute,
   ApiSearchRoute: ApiSearchRoute,
+  ApiPublicBackendKeysRoute: ApiPublicBackendKeysRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

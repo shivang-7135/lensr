@@ -1,0 +1,30 @@
+[project]
+name = "lensr-backend"
+version = "0.1.0"
+description = "LangGraph + Bedrock agent backend for Lensr."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "langchain>=0.3",
+  "langchain-core>=0.3",
+  "langchain-community>=0.3",
+  "langchain-aws>=0.2",
+  "langgraph>=0.2",
+  "boto3>=1.35",
+  "httpx>=0.27",
+  "trafilatura>=1.12",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]>=3.2",
+  "python-dotenv>=1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

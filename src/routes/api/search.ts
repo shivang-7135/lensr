@@ -27,8 +27,9 @@ export const Route = createFileRoute("/api/search")({
           });
         }
 
-        const backendUrl = process.env.BACKEND_BASE_URL;
+        const rawBackend = process.env.BACKEND_BASE_URL;
         const backendSecret = process.env.BACKEND_SHARED_SECRET;
+        const backendUrl = isValidHttpUrl(rawBackend) ? rawBackend! : null;
 
         if (backendUrl) {
           // Proxy SSE from Python backend
@@ -161,6 +162,16 @@ async function streamMockAgent(query: string): Promise<Response> {
 }
 
 function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+
+function isValidHttpUrl(value: string | undefined | null): boolean {
+  if (!value) return false;
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 function classifyMock(q: string): "shopping" | "price_history" | "trip" | "insta" | "general" {
   const s = q.toLowerCase();

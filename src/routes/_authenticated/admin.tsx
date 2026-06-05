@@ -139,33 +139,6 @@ function AdminPage() {
     }
   };
 
-  // Merge DB rows with the required-key registry so missing required keys still appear.
-  const merged = useMemo(() => {
-    const byName = new Map((keys ?? []).map((k) => [k.name, k]));
-    const rows: Array<{
-      name: string;
-      value: string;
-      description: string | null;
-      updated_at: string | null;
-      meta?: RequiredKey;
-    }> = [];
-
-    for (const req of REQUIRED_KEYS) {
-      const row = byName.get(req.name);
-      rows.push({
-        name: req.name,
-        value: row?.value ?? "",
-        description: row?.description ?? req.description,
-        updated_at: row?.updated_at ?? null,
-        meta: req,
-      });
-      byName.delete(req.name);
-    }
-    // Any extra keys not in the registry — show below as "Custom".
-    for (const k of byName.values()) rows.push({ ...k });
-    return rows;
-  }, [keys]);
-
   const groups = ["Search", "AWS Bedrock", "Bedrock Models", "Backend", "Custom"] as const;
   const grouped = groups.map((g) => ({
     group: g,

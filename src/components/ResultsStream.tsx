@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
+import { AgentTimeline } from "@/components/results/AgentTimeline";
+import { SourcesGrid } from "@/components/results/SourcesGrid";
+import { GeneralResult } from "@/components/results/GeneralResult";
+import { ShoppingResult } from "@/components/results/ShoppingResult";
+import { TripResult } from "@/components/results/TripResult";
+import { PriceHistoryResult } from "@/components/results/PriceHistoryResult";
+import { InstaResult } from "@/components/results/InstaResult";
 import ReactMarkdown from "react-markdown";
-import type { StreamEvent, SearchIntent } from "@/lib/search/types";
 
 const INTENT_LABEL: Record<SearchIntent, string> = {
   shopping: "Shopping",
@@ -10,16 +17,35 @@ const INTENT_LABEL: Record<SearchIntent, string> = {
   general: "General",
 };
 
+function renderStructured(intent: SearchIntent, data: Record<string, unknown> | null, fallbackMarkdown: string) {
+  if (!data) {
+    return (
+      <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
+        <ReactMarkdown>{fallbackMarkdown}</ReactMarkdown>
+      </article>
+    );
+  }
+  const withIntent = { intent, ...data } as unknown as StructuredResult;
+  switch (intent) {
+    case "shopping": return <ShoppingResult data={withIntent as Extract<StructuredResult, { intent: "shopping" }>} />;
+    case "trip": return <TripResult data={withIntent as Extract<StructuredResult, { intent: "trip" }>} />;
+    case "price_history": return <PriceHistoryResult data={withIntent as Extract<StructuredResult, { intent: "price_history" }>} />;
+    case "insta": return <InstaResult data={withIntent as Extract<StructuredResult, { intent: "insta" }>} />;
+    default: return <GeneralResult data={withIntent as Extract<StructuredResult, { intent: "general" }>} />;
+  }
+}
+
 export function ResultsStream({ query }: { query: string }) {
   const [events, setEvents] = useState<StreamEvent[]>([]);
-  const [answer, setAnswer] = useState("");
+  const [partial, setPartial] = useState("");
   const [intent, setIntent] = useState<SearchIntent | null>(null);
+  const [final, setFinal] = useState<{ structured: Record<string, unknown> | null; markdown: string; sources: { title: string; url: string }[] } | null>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    setEvents([]); setAnswer(""); setIntent(null); setDone(false); setError(null);
+    setEvents([]); setPartial(""); setIntent(null); setFinal(null); setDone(false); setError(null);
     const ctl = new AbortController();
     abortRef.current = ctl;
 
@@ -31,10 +57,7 @@ export function ResultsStream({ query }: { query: string }) {
           body: JSON.stringify({ query }),
           signal: ctl.signal,
         });
-        if (!resp.ok || !resp.body) {
-          setError(`Request failed (${resp.status})`);
-          return;
-        }
+        if (!resp.ok || !resp.body) { setError(`Request failed (${resp.status})`); return; }
         const reader = resp.body.getReader();
         const dec = new TextDecoder();
         let buf = "";
@@ -52,8 +75,16 @@ export function ResultsStream({ query }: { query: string }) {
                 const ev = JSON.parse(line.slice(6)) as StreamEvent;
                 setEvents((prev) => [...prev, ev]);
                 if (ev.type === "intent_detected") setIntent(ev.intent);
-                if (ev.type === "partial_answer") setAnswer((p) => p + ev.delta);
-                if (ev.type === "final") { setAnswer(ev.markdown); setDone(true); }
+                if (ev.type === "partial_answer") setPartial((p) => p + ev.delta);
+                if (ev.type === "final") {
+                  setIntent(ev.intent);
+                  setFinal({
+                    structured: (ev.structured as Record<string, unknown>) ?? null,
+                    markdown: ev.markdown ?? "",
+                    sources: ev.sources ?? [],
+                  });
+                  setDone(true);
+                }
                 if (ev.type === "error") setError(ev.message);
               } catch { /* ignore */ }
             }
@@ -68,12 +99,9 @@ export function ResultsStream({ query }: { query: string }) {
     return () => ctl.abort();
   }, [query]);
 
-  const sources = events.flatMap((e) => (e.type === "final" ? e.sources : []));
-  const toolEvents = events.filter((e) => e.type === "tool_call" || e.type === "tool_result");
-
   return (
     <div className="grid lg:grid-cols-[1fr_320px] gap-8">
-      <article className="space-y-4">
+      <article className="space-y-4 min-w-0">
         <div className="flex items-center gap-3">
           {intent && (
             <span className="text-xs uppercase tracking-widest px-2 py-1 rounded-full bg-accent text-accent-foreground font-medium">
@@ -82,7 +110,7 @@ export function ResultsStream({ query }: { query: string }) {
           )}
           {!done && (
             <span className="text-xs text-muted-foreground inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-signal animate-pulse" /> thinking…
+              <span className="h-2 w-2 rounded-full bg-signal animate-pulse" /> researching…
             </span>
           )}
         </div>
@@ -93,43 +121,31 @@ export function ResultsStream({ query }: { query: string }) {
           </div>
         )}
 
-        <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-          {answer ? <ReactMarkdown>{answer}</ReactMarkdown> : (
-            <div className="space-y-2">
-              <div className="h-4 w-2/3 bg-secondary rounded animate-pulse" />
-              <div className="h-4 w-1/2 bg-secondary rounded animate-pulse" />
-              <div className="h-4 w-3/4 bg-secondary rounded animate-pulse" />
+        {final && intent ? (
+          <>
+            {renderStructured(intent, final.structured, final.markdown)}
+            <div className="pt-4">
+              <SourcesGrid sources={final.sources} />
             </div>
-          )}
-        </div>
+          </>
+        ) : partial ? (
+          <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
+            <div className="text-xs uppercase tracking-widest text-accent mb-1">Drafting…</div>
+            <p className="text-base leading-relaxed whitespace-pre-wrap">{partial}</p>
+          </div>
+        ) : !error ? (
+          <div className="space-y-2">
+            <div className="h-4 w-2/3 bg-secondary rounded animate-pulse" />
+            <div className="h-4 w-1/2 bg-secondary rounded animate-pulse" />
+            <div className="h-4 w-3/4 bg-secondary rounded animate-pulse" />
+            <div className="h-32 w-full bg-secondary/60 rounded-xl animate-pulse mt-4" />
+          </div>
+        ) : null}
       </article>
 
-      <aside className="space-y-6">
-        <section>
-          <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Agent steps</h3>
-          <ol className="space-y-2 text-sm">
-            {toolEvents.length === 0 && <li className="text-muted-foreground">No tool calls yet.</li>}
-            {toolEvents.map((e, i) => (
-              <li key={i} className="border-l-2 border-accent pl-3 py-1">
-                {e.type === "tool_call" ? (
-                  <><span className="font-mono text-xs text-muted-foreground">call</span> <span className="font-medium">{e.tool}</span><div className="text-xs text-muted-foreground truncate">{e.input}</div></>
-                ) : (
-                  <><span className="font-mono text-xs text-signal">result</span> <span className="font-medium">{e.tool}</span><div className="text-xs text-muted-foreground">{e.summary}</div></>
-                )}
-              </li>
-            ))}
-          </ol>
-        </section>
-        {sources.length > 0 && (
-          <section>
-            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Sources</h3>
-            <ul className="space-y-2 text-sm">
-              {sources.map((s, i) => (
-                <li key={i}><a href={s.url} target="_blank" rel="noreferrer" className="underline decoration-accent underline-offset-4 hover:text-accent">{s.title}</a></li>
-              ))}
-            </ul>
-          </section>
-        )}
+      <aside>
+        <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Research timeline</h3>
+        <AgentTimeline events={events} done={done} />
       </aside>
     </div>
   );

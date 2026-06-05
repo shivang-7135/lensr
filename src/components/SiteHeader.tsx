@@ -4,11 +4,26 @@ import { supabase } from "@/integrations/supabase/client";
 
 export function SiteHeader() {
   const [email, setEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
+    const sync = async (userId: string | undefined) => {
+      if (!userId) { setIsAdmin(false); return; }
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    };
+    supabase.auth.getSession().then(({ data }) => {
+      setEmail(data.session?.user.email ?? null);
+      sync(data.session?.user.id);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setEmail(session?.user.email ?? null);
+      sync(session?.user.id);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -24,6 +39,9 @@ export function SiteHeader() {
         <nav className="flex items-center gap-1 sm:gap-3 text-sm">
           <Link to="/insta" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Insta</Link>
           <Link to="/_authenticated/saved" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Saved</Link>
+          {isAdmin && (
+            <Link to="/_authenticated/admin" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors text-accent">Admin</Link>
+          )}
           {email ? (
             <button
               onClick={() => supabase.auth.signOut()}

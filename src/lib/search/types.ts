@@ -5,7 +5,9 @@ export type SearchIntent =
   | "insta"
   | "general";
 
-export interface Source { title: string; url: string }
+export interface Source { title: string; url: string; image_url?: string }
+
+export interface RelatedLink { label: string; url: string }
 
 // --- Structured payloads per intent (mirror backend schema_hint) ---
 
@@ -16,6 +18,8 @@ export interface ShoppingPick {
   pros?: string[];
   cons?: string[];
   url?: string;
+  image_url?: string;
+  buy_links?: RelatedLink[];
 }
 export interface ShoppingStructured {
   tldr: string;
@@ -25,6 +29,7 @@ export interface ShoppingStructured {
   detail_markdown?: string;
 }
 
+export interface PricePoint { date: string; price: number; label?: string }
 export interface PriceHistoryStructured {
   tldr: string;
   typical_price_range?: string;
@@ -32,6 +37,10 @@ export interface PriceHistoryStructured {
   buy_now_reason?: string;
   sale_windows?: Array<{ when: string; why: string; expected_drop?: string }>;
   trend?: "rising" | "falling" | "stable" | "unknown";
+  currency?: string;
+  lowest_price?: { price: number; when?: string; where?: string };
+  current_price?: number;
+  price_points?: PricePoint[];
   detail_markdown?: string;
 }
 
@@ -43,6 +52,7 @@ export interface TripDay {
   evening?: string;
   food?: string;
   transport_tip?: string;
+  image_url?: string;
 }
 export interface TripStructured {
   tldr: string;
@@ -51,6 +61,8 @@ export interface TripStructured {
   days?: TripDay[];
   budget_hint?: string;
   packing_tips?: string[];
+  hero_image_url?: string;
+  related_links?: RelatedLink[];
   detail_markdown?: string;
 }
 
@@ -61,13 +73,16 @@ export interface InstaStructured {
   mood?: string;
   captions?: InstaCaption[];
   hashtags?: string[];
-  place_suggestions?: Array<{ name: string; why?: string; url?: string }>;
+  place_suggestions?: Array<{ name: string; why?: string; url?: string; image_url?: string }>;
+  generated_image_url?: string;
   detail_markdown?: string;
 }
 
 export interface GeneralStructured {
   tldr: string;
   key_facts?: string[];
+  hero_image_url?: string;
+  related_links?: RelatedLink[];
   detail_markdown?: string;
 }
 

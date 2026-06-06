@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Copy, Check, MapPin } from "lucide-react";
+import { Copy, Check, MapPin, Sparkles } from "lucide-react";
 import type { InstaStructured } from "@/lib/search/types";
 import { DetailDisclosure } from "./DetailDisclosure";
+import { SafeImage } from "./SafeImage";
 
 function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
@@ -20,6 +21,17 @@ export function InstaResult({ data }: { data: InstaStructured }) {
 
   return (
     <div className="space-y-6">
+      {data.generated_image_url && (
+        <div className="rounded-xl overflow-hidden border border-accent/30 relative">
+          <div className="aspect-square sm:aspect-[4/5] max-h-[560px] bg-secondary">
+            <SafeImage src={data.generated_image_url} alt={data.scene ?? "Generated"} className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
+          </div>
+          <div className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-background/80 backdrop-blur">
+            <Sparkles className="h-3 w-3 text-accent" /> AI generated
+          </div>
+        </div>
+      )}
+
       {(data.scene || data.mood) && (
         <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
           {data.scene && <p className="text-base leading-relaxed">{data.scene}</p>}
@@ -56,12 +68,17 @@ export function InstaResult({ data }: { data: InstaStructured }) {
       {!!data.place_suggestions?.length && (
         <div>
           <h2 className="font-display text-lg mb-2">Similar / nearby spots</h2>
-          <ul className="space-y-2">
+          <ul className="grid sm:grid-cols-2 gap-3">
             {data.place_suggestions.map((p, i) => (
-              <li key={i} className="p-3 rounded-lg border border-border">
-                <div className="flex items-start gap-2">
+              <li key={i} className="rounded-lg border border-border overflow-hidden flex">
+                {p.image_url && (
+                  <div className="w-24 shrink-0 bg-secondary">
+                    <SafeImage src={p.image_url} alt={p.name} className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
+                  </div>
+                )}
+                <div className="p-3 flex items-start gap-2 flex-1 min-w-0">
                   <MapPin className="h-4 w-4 text-accent mt-0.5 shrink-0" />
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-medium text-sm">
                       {p.url ? <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-accent underline-offset-4 hover:underline">{p.name}</a> : p.name}
                     </div>
@@ -75,7 +92,6 @@ export function InstaResult({ data }: { data: InstaStructured }) {
       )}
 
       <DetailDisclosure markdown={data.detail_markdown} />
-
     </div>
   );
 }

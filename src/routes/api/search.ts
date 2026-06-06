@@ -486,13 +486,109 @@ const SYS_PROMPT: Record<Intent, string> = {
 
 const SCHEMA_HINT: Record<Intent, string> = {
   shopping:
-    '{"tldr":"string","recommendation":"name of top pick","picks":[{"name":"...","price_range":"...","best_for":"...","pros":["..."],"cons":["..."],"url":"..."}],"comparison_table":[{"name":"...","price":"...","key_spec":"...","rating":"..."}],"detail_markdown":"string"}',
+    '{"tldr":"string","recommendation":"name of top pick","picks":[{"name":"...","price_range":"...","best_for":"...","pros":["..."],"cons":["..."],"url":"...","image_url":"https://... product image URL that appears in the Sources list (omit if none)","buy_links":[{"label":"Amazon|Best Buy|Official site|...","url":"https://... must be one of the Sources URLs"}]}],"comparison_table":[{"name":"...","price":"...","key_spec":"...","rating":"..."}],"detail_markdown":"string"}',
   price_history:
-    '{"tldr":"string","typical_price_range":"string","trend":"rising|falling|stable|unknown","buy_now_score":0-10,"buy_now_reason":"string","sale_windows":[{"when":"...","why":"...","expected_drop":"..."}],"detail_markdown":"string"}',
+    '{"tldr":"string","typical_price_range":"e.g. $899-$1199","currency":"$|€|£|₹","trend":"rising|falling|stable|unknown","buy_now_score":0-10,"buy_now_reason":"string","current_price":number,"lowest_price":{"price":number,"when":"YYYY-MM","where":"retailer"},"price_points":[{"date":"YYYY-MM","price":number,"label":"optional retailer/event"}],"sale_windows":[{"when":"...","why":"...","expected_drop":"..."}],"detail_markdown":"string"}\n\nIMPORTANT: price_points should be 6-12 monthly samples reconstructed from the evidence so the user sees a real trend line. Use numeric prices in one consistent currency.',
   trip:
-    '{"tldr":"string","destination":"string","best_time_to_visit":"string","days":[{"day":1,"theme":"...","morning":"...","afternoon":"...","evening":"...","food":"...","transport_tip":"..."}],"budget_hint":"string","packing_tips":["..."],"detail_markdown":"string"}',
+    '{"tldr":"string","destination":"string","best_time_to_visit":"string","hero_image_url":"https://... destination image URL from the Sources (omit if none)","days":[{"day":1,"theme":"...","morning":"...","afternoon":"...","evening":"...","food":"...","transport_tip":"...","image_url":"https://... from Sources, optional"}],"budget_hint":"string","packing_tips":["..."],"related_links":[{"label":"Official tourism|Booking|Map|...","url":"https://... must be from Sources"}],"detail_markdown":"string"}',
   insta:
-    '{"tldr":"string","scene":"string","mood":"string","captions":[{"style":"witty|poetic|minimal|bold|funny","text":"..."}],"hashtags":["#..."],"place_suggestions":[{"name":"...","why":"...","url":"..."}],"detail_markdown":"string"}',
+    '{"tldr":"string","scene":"2-3 sentence vivid visual description of the ideal shot","mood":"string","captions":[{"style":"witty|poetic|minimal|bold|funny","text":"..."}],"hashtags":["#..."],"place_suggestions":[{"name":"...","why":"...","url":"https://... from Sources","image_url":"https://... from Sources, optional"}],"detail_markdown":"string"}',
   general:
-    '{"tldr":"string","key_facts":["..."],"detail_markdown":"string (rich markdown with sections)"}',
+    '{"tldr":"string","key_facts":["..."],"hero_image_url":"https://... a representative image URL drawn from the Sources (omit if none)","related_links":[{"label":"short label","url":"https://... must be one of the Sources URLs"}],"detail_markdown":"string (rich markdown with sections)"}',
 };
+
+/* ---------------- URL hygiene + media enrichment ---------------- */
+
+function sourceUrlSet(sources: Source[]): Set<string> {
+  return new Set(sources.map((s) => s.url));
+}
+
+function looksLikeImage(u: string): boolean {
+  return /\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(u);
+}
+
+function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, sources: Source[]): Record<string, unknown> {
+  const allowed = sourceUrlSet(sources);
+  const okLink = (u: unknown): u is string => typeof u === "string" && /^https?:\/\//.test(u) && allowed.has(u);
+  const okImage = (u: unknown): u is string => typeof u === "string" && /^https?:\/\//.test(u) && (allowed.has(u) || looksLikeImage(u));
+  const filterLinks = (arr: unknown): { label: string; url: string }[] | undefined => {
+    if (!Array.isArray(arr)) return undefined;
+    const out = arr
+      .map((x) => x as { label?: unknown; url?: unknown })
+      .filter((x) => typeof x?.label === "string" && okLink(x?.url))
+      .map((x) => ({ label: x.label as string, url: x.url as string }));
+    return out.length ? out.slice(0, 6) : undefined;
+  };
+
+  const o: Record<string, unknown> = { ...obj };
+  if ("hero_image_url" in o && !okImage(o.hero_image_url)) delete o.hero_image_url;
+  if ("related_links" in o) {
+    const f = filterLinks(o.related_links);
+    if (f) o.related_links = f; else delete o.related_links;
+  }
+
+  if (intent === "shopping" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("buy_links" in np) {
+        const f = filterLinks(np.buy_links);
+        if (f) np.buy_links = f; else delete np.buy_links;
+      }
+      return np;
+    });
+  }
+  if (intent === "trip" && Array.isArray(o.days)) {
+    o.days = (o.days as Record<string, unknown>[]).map((d) => {
+      const nd = { ...d };
+      if ("image_url" in nd && !okImage(nd.image_url)) delete nd.image_url;
+      return nd;
+    });
+  }
+  if (intent === "insta" && Array.isArray(o.place_suggestions)) {
+    o.place_suggestions = (o.place_suggestions as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      return np;
+    });
+  }
+  return o;
+}
+
+async function generateInstaImage(scene: string, mood: string, apiKey: string): Promise<string | null> {
+  try {
+    const prompt =
+      `Instagram-ready photograph. ${scene}. Mood: ${mood || "vibrant"}. ` +
+      "Cinematic lighting, shallow depth of field, vibrant colors, social-media composition.";
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const msg = json.choices?.[0]?.message ?? {};
+    const images = msg.images;
+    if (Array.isArray(images) && images.length) {
+      const first = images[0];
+      const url = first?.image_url?.url ?? first?.url;
+      if (typeof url === "string") return url;
+    }
+    const content = msg.content;
+    if (typeof content === "string" && content.startsWith("data:image")) return content;
+    if (Array.isArray(content)) {
+      for (const c of content) {
+        const url = c?.image_url?.url ?? c?.url;
+        if (typeof url === "string" && (url.startsWith("http") || url.startsWith("data:image"))) return url;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+

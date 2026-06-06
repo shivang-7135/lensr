@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, MapPin, Sparkles } from "lucide-react";
+import { Copy, Check, MapPin, Sparkles, ExternalLink } from "lucide-react";
 import type { InstaStructured } from "@/lib/search/types";
 import { DetailDisclosure } from "./DetailDisclosure";
 import { SafeImage } from "./SafeImage";

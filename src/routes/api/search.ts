@@ -829,3 +829,42 @@ async function generateAIImage(prompt: string, apiKey: string): Promise<string |
   }
 }
 
+/** Generic Wikipedia lead-image fetcher — used for places, recipes, events. */
+async function fetchWikiImage(q: string): Promise<string | null> {
+  try {
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
+    const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    if (!sr.ok) return null;
+    const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
+    const pageTitle = sj.query?.search?.[0]?.title;
+    if (!pageTitle) return null;
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
+    const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    if (!pr.ok) return null;
+    const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
+    const img = pj.originalimage?.source || pj.thumbnail?.source;
+    return img && /^https?:\/\//.test(img) ? img : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Open Library cover fetcher for books. */
+async function fetchBookCover(title: string, author: string): Promise<string | null> {
+  try {
+    const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}${author ? `&author=${encodeURIComponent(author)}` : ""}&limit=1`;
+    const r = await fetch(url, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { docs?: Array<{ cover_i?: number; isbn?: string[] }> };
+    const doc = j.docs?.[0];
+    if (!doc) return null;
+    if (doc.cover_i) return `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
+    const isbn = doc.isbn?.[0];
+    if (isbn) return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+

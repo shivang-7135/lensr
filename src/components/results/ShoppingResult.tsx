@@ -7,7 +7,7 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
   return (
     <div className="space-y-6">
       {data.tldr && (
-        <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
+        <div className="p-5 glass-strong">
           <div className="text-xs uppercase tracking-widest text-accent mb-1 flex items-center gap-1">
             <Award className="h-3 w-3" /> Recommendation
           </div>
@@ -24,9 +24,13 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
             const isTop = data.recommendation && p.name.toLowerCase().includes(data.recommendation.toLowerCase());
             const buyLinks = p.buy_links?.length ? p.buy_links : (p.url ? [{ label: "View", url: p.url }] : []);
             return (
-              <div key={i} className={`rounded-xl border ${isTop ? "border-accent bg-accent/5" : "border-border"} overflow-hidden flex flex-col`}>
+              <div
+                key={i}
+                className={`glass glass-hover overflow-hidden flex flex-col fade-up ${isTop ? "ring-1 ring-accent/40" : ""}`}
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
                 {p.image_url && (
-                  <div className="aspect-[16/9] bg-secondary overflow-hidden">
+                  <div className="aspect-[16/9] bg-white/5 overflow-hidden">
                     <SafeImage src={p.image_url} alt={p.name} className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
                   </div>
                 )}
@@ -66,28 +70,30 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
       )}
 
       {!!data.comparison_table?.length && (
-        <div className="overflow-x-auto">
-          <h2 className="font-display text-lg mb-2">Comparison</h2>
-          <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
-            <thead className="bg-secondary text-xs uppercase tracking-wider">
-              <tr>
-                <th className="text-left p-2">Name</th>
-                <th className="text-left p-2">Price</th>
-                <th className="text-left p-2">Key spec</th>
-                <th className="text-left p-2">Rating</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.comparison_table.map((r, i) => (
-                <tr key={i} className="border-t border-border">
-                  <td className="p-2 font-medium">{r.name}</td>
-                  <td className="p-2">{r.price ?? "—"}</td>
-                  <td className="p-2">{r.key_spec ?? "—"}</td>
-                  <td className="p-2">{r.rating ?? "—"}</td>
+        <div className="glass p-4">
+          <h2 className="font-display text-lg mb-3">Comparison</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-white/10">
+                  <th className="text-left p-2">Name</th>
+                  <th className="text-left p-2">Price</th>
+                  <th className="text-left p-2">Key spec</th>
+                  <th className="text-left p-2">Rating</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.comparison_table.map((r, i) => (
+                  <tr key={i} className="border-b border-white/5 last:border-0">
+                    <td className="p-2 font-medium">{r.name}</td>
+                    <td className="p-2">{r.price ?? "—"}</td>
+                    <td className="p-2">{r.key_spec ?? "—"}</td>
+                    <td className="p-2">{r.rating ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

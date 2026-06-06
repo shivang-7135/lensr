@@ -19,19 +19,19 @@ export function GeneralResult({
   return (
     <div className="space-y-6">
       {data.hero_image_url && (
-        <div className="rounded-xl overflow-hidden aspect-[21/9] bg-secondary">
+        <div className="glass overflow-hidden aspect-[21/9] p-0">
           <SafeImage src={data.hero_image_url} alt="" className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
         </div>
       )}
       {data.tldr && (
-        <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
+        <div className="p-5 glass-strong">
           <div className="text-xs uppercase tracking-widest text-accent mb-1">TL;DR</div>
           <p className="text-base leading-relaxed">{data.tldr}</p>
         </div>
       )}
       {!!data.key_facts?.length && (
-        <div>
-          <h2 className="font-display text-lg mb-2">Key facts</h2>
+        <div className="glass p-5">
+          <h2 className="font-display text-lg mb-3">Key facts</h2>
           <ul className="space-y-1.5">
             {data.key_facts.map((f, i) => (
               <li key={i} className="flex gap-2 text-sm">
@@ -50,14 +50,14 @@ export function GeneralResult({
         <div className="flex flex-wrap gap-2">
           {data.related_links.map((l, i) => (
             <a key={i} href={l.url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border border-border hover:border-accent hover:text-accent transition">
+              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full glass-soft hover:border-accent/60 hover:text-accent transition">
               {l.label} <ExternalLink className="h-3 w-3 opacity-70" />
             </a>
           ))}
         </div>
       )}
       {md && (
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display prose-p:leading-relaxed">
+        <article className="prose prose-invert max-w-none prose-headings:font-display prose-p:leading-relaxed prose-a:text-accent prose-strong:text-foreground">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
             {md}
           </ReactMarkdown>

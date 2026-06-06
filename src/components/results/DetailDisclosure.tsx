@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChevronDown } from "lucide-react";
 
 export function DetailDisclosure({ markdown, label = "Show full analysis" }: { markdown?: string; label?: string }) {
@@ -16,7 +17,7 @@ export function DetailDisclosure({ markdown, label = "Show full analysis" }: { m
       </button>
       {open && (
         <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display mt-4 prose-sm">
-          <ReactMarkdown>{markdown}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </article>
       )}
     </div>

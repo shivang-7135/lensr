@@ -1,4 +1,5 @@
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { GeneralStructured } from "@/lib/search/types";
 
 export function GeneralResult({ data }: { data: GeneralStructured }) {
@@ -24,7 +25,7 @@ export function GeneralResult({ data }: { data: GeneralStructured }) {
       )}
       {data.detail_markdown && (
         <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-          <ReactMarkdown>{data.detail_markdown}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.detail_markdown}</ReactMarkdown>
         </article>
       )}
     </div>

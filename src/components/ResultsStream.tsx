@@ -8,6 +8,7 @@ import { TripResult } from "@/components/results/TripResult";
 import { PriceHistoryResult } from "@/components/results/PriceHistoryResult";
 import { InstaResult } from "@/components/results/InstaResult";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const INTENT_LABEL: Record<SearchIntent, string> = {
   shopping: "Shopping",
@@ -21,7 +22,7 @@ function renderStructured(intent: SearchIntent, data: Record<string, unknown> | 
   if (!data) {
     return (
       <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-        <ReactMarkdown>{fallbackMarkdown}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{fallbackMarkdown}</ReactMarkdown>
       </article>
     );
   }

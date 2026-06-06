@@ -1,4 +1,5 @@
-import { TrendingDown, TrendingUp, Minus, HelpCircle } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus, HelpCircle, ArrowDownToLine } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
 import type { PriceHistoryStructured } from "@/lib/search/types";
 import { DetailDisclosure } from "./DetailDisclosure";
 
@@ -7,6 +8,11 @@ const TREND_ICON = { rising: TrendingUp, falling: TrendingDown, stable: Minus, u
 export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
   const score = typeof data.buy_now_score === "number" ? Math.max(0, Math.min(10, data.buy_now_score)) : null;
   const Trend = TREND_ICON[data.trend ?? "unknown"];
+  const currency = data.currency ?? "$";
+  const points = (data.price_points ?? []).filter((p) => typeof p.price === "number");
+  const lowest = data.lowest_price ?? (points.length
+    ? points.reduce((min, p) => (p.price < min.price ? p : min))
+    : null);
 
   return (
     <div className="space-y-6">
@@ -41,6 +47,38 @@ export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
         )}
       </div>
 
+      {points.length >= 2 && (
+        <div className="p-4 rounded-xl border border-border">
+          <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+            <h2 className="font-display text-lg">Price history</h2>
+            {lowest && (
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <ArrowDownToLine className="h-3 w-3 text-signal" />
+                Lowest: <span className="font-mono font-semibold text-signal">{currency}{lowest.price}</span>
+                {lowest.when && <span>· {lowest.when}</span>}
+                {lowest.where && <span>· {lowest.where}</span>}
+              </div>
+            )}
+          </div>
+          <div className="h-56 w-full">
+            <ResponsiveContainer>
+              <LineChart data={points} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${currency}${v}`} width={56} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => [`${currency}${v}`, "Price"]}
+                />
+                <Line type="monotone" dataKey="price" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                {lowest && (
+                  <ReferenceDot x={lowest.when ?? (lowest as { date?: string }).date} y={lowest.price} r={6} fill="hsl(var(--signal))" stroke="hsl(var(--background))" />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {!!data.sale_windows?.length && (
         <div>
           <h2 className="font-display text-lg mb-2">Sale windows</h2>
@@ -57,7 +95,6 @@ export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
       )}
 
       <DetailDisclosure markdown={data.detail_markdown} />
-
     </div>
   );
 }

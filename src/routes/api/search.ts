@@ -223,6 +223,7 @@ function planQueries(query: string, intent: Intent, keywords: string[]): string[
     price_history: [`${query} price history`, `${query} sale dates`, `when is ${base} cheapest`, `${base} discount calendar`],
     trip: [`things to do ${query}`, `${query} itinerary`, `best time to visit ${base}`, `${base} local food`],
     insta: [`${query} caption ideas`, `${base} instagram hashtags`, `${base} aesthetic spots`],
+    movies: [`${query} best 2025`, `${base} review imdb`, `${base} where to watch streaming`, `${base} rotten tomatoes`],
     general: [query, `${query} explained`, `${query} latest`, `what is ${base}`],
   };
   return plans[intent].slice(0, 4);
@@ -498,7 +499,9 @@ function validateIntent(intent: Intent, obj: Record<string, unknown>): boolean {
     case "price_history": return has("typical_price_range") || has("buy_now_score");
     case "trip": return arr("days");
     case "insta": return arr("captions");
+    case "movies": return arr("picks");
     case "general": return true;
+    default: return false;
   }
 }
 
@@ -518,6 +521,8 @@ const SYS_PROMPT: Record<Intent, string> = {
     "You are a senior trip planner. Build a concrete, walkable itinerary grounded in the evidence. Prefer specific venues over generic advice.",
   insta:
     "You are an Instagram caption writer. Produce 3-5 caption styles, 12-20 hashtags, and place suggestions based on the evidence.",
+  movies:
+    "You are a film and TV critic. Recommend 4-8 specific titles that match the user's query, grounded ONLY in the evidence. For each title give a tight 'why_recommended' (1 sentence), genre, runtime, rating (IMDb/RT if present), where_to_watch (Netflix/Prime/HBO/etc) and a short synopsis. Never invent titles.",
   general:
     "Answer directly using the evidence. Be specific, accurate, well-structured. Include key facts and a rich markdown detail section with [n] citations.",
 };
@@ -531,6 +536,8 @@ const SCHEMA_HINT: Record<Intent, string> = {
     '{"tldr":"string","destination":"string","best_time_to_visit":"string","hero_image_url":"https://... destination image URL from the Sources (omit if none)","days":[{"day":1,"theme":"...","morning":"...","afternoon":"...","evening":"...","food":"...","transport_tip":"...","image_url":"https://... from Sources, optional"}],"budget_hint":"string","packing_tips":["..."],"related_links":[{"label":"Official tourism|Booking|Map|...","url":"https://... must be from Sources"}],"detail_markdown":"string"}',
   insta:
     '{"tldr":"string","scene":"2-3 sentence vivid visual description of the ideal shot","mood":"string","captions":[{"style":"witty|poetic|minimal|bold|funny","text":"..."}],"hashtags":["#..."],"place_suggestions":[{"name":"...","why":"...","url":"https://... from Sources","image_url":"https://... from Sources, optional"}],"detail_markdown":"string"}',
+  movies:
+    '{"tldr":"1-2 sentence overview of what to watch","recommendation":"title of the top pick","picks":[{"title":"...","year":"YYYY","genre":"Thriller|Drama|...","rating":"e.g. 8.4 IMDb or 92% RT","runtime":"e.g. 2h 14m","where_to_watch":"Netflix|Prime|HBO|Hulu|...","why_recommended":"1 sentence on why it fits the query","synopsis":"2-3 sentence plot summary","poster_url":"https://... ONLY if a real poster URL appears in the Sources list (omit otherwise)","trailer_url":"https://www.youtube.com/... if found in Sources (omit otherwise)"}],"detail_markdown":"string"}\n\nIMPORTANT: 4-8 picks. Use real titles only. Never fabricate poster_url or trailer_url — omit those fields if no source covers them.',
   general:
     '{"tldr":"string","key_facts":["..."],"hero_image_url":"https://... a representative image URL drawn from the Sources (omit if none)","related_links":[{"label":"short label","url":"https://... must be one of the Sources URLs"}],"detail_markdown":"string (rich markdown with sections)"}',
 };

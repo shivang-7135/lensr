@@ -1,72 +1,62 @@
-# Better search: adaptive agent + rich intent-aware results
+# Fix: real grounded answers + better fallback + smarter intent
 
-Goal: replace the current shallow "one search → summarize" flow with an **adaptive multi-step agent** in the Python LangGraph backend, and render its output with **intent-specific UI components** instead of one plain markdown blob.
+The current screen happens because the second LLM call (structured-JSON synthesis with `google/gemini-2.5-flash`) returned something that didn't parse as JSON, so `synthesizeStructured` returned the placeholder `{ tldr: "No structured answer available.", detail_markdown: evidence }`. The frontend then rendered that as a Shopping card with an empty "Recommendation" and dumped the evidence brief verbatim. The evidence brief itself is real grounded data — we just throw it away into raw markdown.
 
-## Backend (Python / LangGraph)
+Three real problems to fix:
 
-Rewrite `backend/app/router_graph.py` and per-intent agents into a shared adaptive loop:
+1. **Structured synthesis is brittle** — single JSON-mode call on `gemini-2.5-flash` with no retry, no JSON repair, no schema validation. When it fails the UI shows the broken card.
+2. **Intent classification is regex-based** — "Buy porsche gt3 germany" matches `/buy|under \$|best/`, so it gets shoved into the Shopping schema even though there is no comparable product list to pick from. Wrong template → wrong card.
+3. **Fallback rendering is wrong** — when synthesis fails we should render the evidence as a clean General result with proper markdown (GFM, citations linked to sources), not a half-empty Shopping card.
 
-```text
-classify_intent
-   ↓
-extract_keywords + entities  (LLM, JSON)
-   ↓
-generate_search_plan         (LLM picks 3–6 diverse Google queries from keywords)
-   ↓
-┌─► serper_search (parallel for all queries)
-│      ↓
-│   dedupe + rank sources
-│      ↓
-│   scrape top N pages (trafilatura, already present)
-│      ↓
-│   reflect: "do I have enough to answer well?"   (LLM, JSON: {done, missing, followup_queries})
-└── if not done and loop<3 → feed followup_queries back to serper_search
-   ↓
-synthesize_structured_answer  (LLM returns JSON matching intent schema)
-   ↓
-stream final
-```
+## Changes
 
-Key changes:
-- New file `backend/app/agents/_pipeline.py` holds the shared adaptive loop. Per-intent files (`shopping.py`, `trip.py`, `insta.py`, `price_history.py`, `general.py`) only supply: system prompt, JSON output schema, and search-plan hints.
-- **Structured output per intent** (returned alongside markdown):
-  - `shopping`: `{ tldr, picks: [{name, price_range, pros[], cons[], best_for, url}], comparison_table, recommendation }`
-  - `price_history`: `{ tldr, typical_price_range, sale_windows[], buy_now_score (0–10), reasoning }`
-  - `trip`: `{ tldr, days: [{day, theme, morning, afternoon, evening, food, transport_tip}], budget_hint, packing_tips[] }`
-  - `insta`: `{ tldr, captions: [{style, text}], hashtags[], place_suggestions[] }`
-  - `general`: `{ tldr, key_facts[], detail_markdown }`
-- Stream new SSE event types: `keywords_extracted`, `search_plan`, `search_results`, `scrape_progress`, `reflection`, `partial_answer`, `final` (with `structured` payload + `sources`).
-- Use Serper (already wired in `tools/serper.py`) with parallel `asyncio.gather` for fan-out.
-- Cap: max 3 reflection loops, max 12 sources scraped, total timeout 45s.
+### 1. `src/routes/api/search.ts` — backend pipeline
 
-## Frontend (TanStack / React)
+- **LLM-based intent classification.** Replace `classifyIntent` regex with one `gemini-2.5-flash-lite` JSON call: `{"intent": "...", "confidence": 0..1, "reason": "..."}`. Keep the regex as a fast pre-hint passed to the LLM. For low confidence (<0.6) default to `general` instead of guessing shopping.
+- **Stronger grounded research.** Keep `google/gemini-2.5-flash` with `google_search` tool, but:
+  - Drop the "do not write the final answer yet" framing and instead ask for: a 350–600 word evidence brief, with inline `[n]` citations and a numbered `Sources:` block at the end, sorted by usefulness.
+  - Parse sources from grounding metadata in all known response shapes (`message.grounding_metadata`, `message.metadata.grounding_metadata`, `candidates[0].grounding_metadata`, OpenAI `tool_calls` results). Fall back to URL extraction from the brief — but only keep URLs that also appear in the model's `Sources:` list to avoid noise.
+  - If 0 sources come back, surface a `stage: "search_loop_1_empty"` event and skip structured synthesis entirely → render as General with the evidence.
+- **Robust structured synthesis.**
+  - Switch the synthesis model to `google/gemini-3-flash-preview` (stronger JSON adherence) and keep `response_format: json_object`.
+  - On parse failure, run a single repair pass: send the bad output back to `gemini-2.5-flash-lite` with `"Repair this to valid JSON matching schema X. Reply with JSON only."` and try once more.
+  - Validate the returned object against the intent schema (required keys present and non-empty: `tldr`, plus intent-specific keys like `picks` for shopping, `days` for trip, `captions` for insta). If validation fails, **degrade to `general`** with `{ tldr, key_facts, detail_markdown: evidence }` instead of returning a broken card.
+  - Never return the literal string `"No structured answer available."` — that's the tell that everything below it is unstyled markdown.
+- **Sources fidelity.** Pass the real numbered source list into the synthesis prompt and force the model to reuse those exact `[n]` indices in `detail_markdown` so citations resolve.
 
-1. **Types** (`src/lib/search/types.ts`): extend `StreamEvent` with new event kinds and a discriminated `StructuredResult` union per intent.
+### 2. `src/components/ResultsStream.tsx` — render the right card
 
-2. **`ResultsStream.tsx`**: collect events and dispatch to an intent-specific renderer instead of one `<ReactMarkdown>`.
+- New helper `pickRenderer(intent, structured, markdown, sources)`:
+  - If `structured` is missing or its intent-required keys are empty (e.g. shopping with no `picks`, trip with no `days`), render as `GeneralResult` built from `{ tldr: structured?.tldr || firstParagraph(markdown), key_facts: [], detail_markdown: markdown }`.
+  - Otherwise render the intent-specific component as today.
+- Render inline `[n]` citations in markdown as clickable superscript links to the corresponding source URL (small `<a>` custom component in `ReactMarkdown`).
 
-3. **New components** under `src/components/results/`:
-   - `AgentTimeline.tsx` — replaces "Agent steps" sidebar; pretty steps with icons for keyword extraction, each search query, scrape progress, reflection.
-   - `ShoppingResult.tsx` — pick cards with pros/cons, comparison table, recommended badge.
-   - `TripResult.tsx` — day-by-day itinerary cards, budget + packing chips.
-   - `PriceHistoryResult.tsx` — buy-now gauge, sale-window timeline.
-   - `InstaResult.tsx` — caption cards (copy button), hashtag chips, place list.
-   - `GeneralResult.tsx` — TL;DR card + key-facts list + long-form markdown.
-   - `SourcesGrid.tsx` — favicon + title + domain cards, replaces flat link list.
+### 3. `src/components/results/GeneralResult.tsx` — usable as the universal fallback
 
-4. **Streaming UX**: show skeletons for the structured panel while `partial_answer` events arrive, then swap to the structured component when `final` lands.
+- Already has `tldr` + `key_facts` + `detail_markdown`. Ensure `remark-gfm` is wired (it is) and add the same citation-link renderer so `[1]`, `[2]` inside the brief become clickable.
+- If `key_facts` is empty, hide the heading instead of rendering an empty section.
 
-## Config / ops
+### 4. `src/components/results/AgentTimeline.tsx`
 
-- Confirm `SERPER_API_KEY` is set on the backend service (env var on the Python host — not a Lovable secret).
-- `BACKEND_BASE_URL` must point to the deployed Python service; otherwise the TS route already falls back to the mock and the user will keep seeing today's behavior. Plan assumes the Python backend is reachable.
+- Add a row for the new `search_loop_1_empty` stage so the user sees "no sources found — falling back to model knowledge" instead of silent confusion.
 
-## Out of scope (for this iteration)
+## Out of scope
 
-- Caching of past searches, user feedback / re-run, multi-modal image queries (the current `/results?q=caption+%2B+place+ideas+for+image:...` URL pattern keeps working as a plain text query into the `insta` agent).
+- Real Serper pipeline (already lives on the Python backend; this fix is for the TS fallback the preview is hitting).
+- Adding caching, save-search, or multi-loop reflection in the TS fallback.
+- Redesigning the Shopping/Trip/Price/Insta cards themselves — they're fine when fed valid data.
 
 ## Technical notes
 
-- LangGraph: use `StateGraph` with a loop edge `reflect → search` gated by `state["loop"] < 3 and not state["done"]`.
-- JSON-mode synthesis: use `reasoning_llm()` with a system prompt enforcing the per-intent schema; validate with `pydantic` before emitting `final`.
-- SSE: keep the existing `data: {json}\n\n` framing so the TS proxy needs no changes.
+- JSON repair pass uses a small/cheap model so it doesn't add meaningful latency.
+- Intent schema validation lives next to `SCHEMA_HINT` in `search.ts` as a tiny `validators: Record<Intent, (o) => boolean>` map — no Zod needed server-side.
+- Citation linker: a `components={{ a, sup }}` map on `ReactMarkdown` resolves `[n]` → `sources[n-1].url`. A small regex pre-pass in markdown converts `[1]` → `[<sup>1</sup>](#)` only when the integer is within range.
+- Keep the existing SSE event shape; only add `search_loop_1_empty` and reuse `stage`.
+
+## After this
+
+For "Buy porsche gt3 germany" the user will see either:
+- a clean **General** card with TL;DR, key facts, and the full grounded brief with linked `[n]` citations, or
+- a real Shopping card with actual picks (e.g., 992 GT3, GT3 Touring, GT3 RS) only when there's enough comparable data to fill it.
+
+No more half-empty cards saying "No structured answer available." over real research.

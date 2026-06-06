@@ -177,6 +177,70 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             return next;
           }));
           cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "books" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_covers" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (b) => {
+            const title = (b.title as string) ?? "";
+            const author = (b.author as string) ?? "";
+            const next: Record<string, unknown> = { ...b };
+            next.goodreads_url = `https://www.goodreads.com/search?q=${encodeURIComponent(`${title} ${author}`.trim())}`;
+            next.buy_url = `https://www.amazon.com/s?k=${encodeURIComponent(`${title} ${author} book`.trim())}`;
+            if (title) {
+              const cover = await fetchBookCover(title, author);
+              if (cover) next.cover_url = cover;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "places" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_place_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (p) => {
+            const name = (p.name as string) ?? "";
+            const neighborhood = (p.neighborhood as string) ?? "";
+            const address = (p.address as string) ?? "";
+            const next: Record<string, unknown> = { ...p };
+            const mapQ = encodeURIComponent([name, address || neighborhood].filter(Boolean).join(" "));
+            next.maps_url = `https://www.google.com/maps/search/?api=1&query=${mapQ}`;
+            if (!p.image_url && name) {
+              const img = await fetchWikiImage(`${name} restaurant`) || await fetchWikiImage(name);
+              if (img) next.image_url = img;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "recipes" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_recipe_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (r) => {
+            const title = (r.title as string) ?? "";
+            const cuisine = (r.cuisine as string) ?? "";
+            const next: Record<string, unknown> = { ...r };
+            if (!r.image_url && title) {
+              const img = await fetchWikiImage(`${title} dish`) || await fetchWikiImage(title) || (cuisine ? await fetchWikiImage(`${cuisine} cuisine`) : null);
+              if (img) next.image_url = img;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "events" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_event_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (e) => {
+            const title = (e.title as string) ?? "";
+            const city = (e.city as string) ?? "";
+            const next: Record<string, unknown> = { ...e };
+            if (!e.tickets_url && !e.source_url) {
+              next.tickets_url = `https://www.ticketmaster.com/search?q=${encodeURIComponent(`${title} ${city}`.trim())}`;
+            }
+            if (!e.image_url && title) {
+              const img = await fetchWikiImage(title) || (city ? await fetchWikiImage(city) : null);
+              if (img) next.image_url = img;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
         }
 
         send({

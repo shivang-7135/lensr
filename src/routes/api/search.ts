@@ -327,6 +327,17 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           } else if (existingLinks.length === 0) {
             cleaned = { ...cleaned, related_links: [{ label: "Search web", url: googleSearch(query) }] };
           }
+        } else if (finalIntent === "price_history") {
+          send({ type: "stage", stage: "fetch_price_links" });
+          const product = (keywords.entities?.[0] as string) || query;
+          const existingLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
+          const have = new Set(existingLinks.map((l) => l.label.toLowerCase()));
+          const ctas: Array<{ label: string; url: string }> = [...existingLinks];
+          if (!have.has("amazon")) ctas.push({ label: "Amazon", url: amazonSearch(product) });
+          if (!have.has("camelcamelcamel")) ctas.push({ label: "CamelCamelCamel", url: `https://camelcamelcamel.com/search?sq=${encodeURIComponent(product)}` });
+          if (!have.has("keepa")) ctas.push({ label: "Keepa", url: `https://keepa.com/#!search/1-${encodeURIComponent(product)}` });
+          if (!have.has("google shopping")) ctas.push({ label: "Google Shopping", url: `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(product)}` });
+          cleaned = { ...cleaned, related_links: ctas.slice(0, 6) };
         }
 
         send({
@@ -711,7 +722,7 @@ const SCHEMA_HINT: Record<Intent, string> = {
   shopping:
     '{"tldr":"string","recommendation":"name of top pick","picks":[{"name":"...","price_range":"...","best_for":"...","pros":["..."],"cons":["..."],"url":"...","image_url":"https://... product image URL that appears in the Sources list (omit if none)","buy_links":[{"label":"Amazon|Best Buy|Official site|...","url":"https://... must be one of the Sources URLs"}]}],"comparison_table":[{"name":"...","price":"...","key_spec":"...","rating":"..."}],"detail_markdown":"string"}',
   price_history:
-    '{"tldr":"string","typical_price_range":"e.g. $899-$1199","currency":"$|€|£|₹","trend":"rising|falling|stable|unknown","buy_now_score":0-10,"buy_now_reason":"string","current_price":number,"lowest_price":{"price":number,"when":"YYYY-MM","where":"retailer"},"price_points":[{"date":"YYYY-MM","price":number,"label":"optional retailer/event"}],"sale_windows":[{"when":"...","why":"...","expected_drop":"..."}],"detail_markdown":"string"}\n\nIMPORTANT: price_points should be 6-12 monthly samples reconstructed from the evidence so the user sees a real trend line. Use numeric prices in one consistent currency.',
+    '{"tldr":"string","typical_price_range":"e.g. $899-$1199","currency":"$|€|£|₹","trend":"rising|falling|stable|unknown","buy_now_score":0-10,"buy_now_reason":"string","current_price":number,"lowest_price":{"price":number,"when":"YYYY-MM","where":"retailer"},"price_points":[{"date":"YYYY-MM","price":number,"label":"optional retailer/event"}],"sale_windows":[{"when":"...","why":"...","expected_drop":"..."}],"related_links":[{"label":"Amazon|Best Buy|...","url":"https://... must be one of the Sources URLs"}],"detail_markdown":"string"}\n\nIMPORTANT: price_points should be 6-12 monthly samples reconstructed from the evidence so the user sees a real trend line. Use numeric prices in one consistent currency.',
   trip:
     '{"tldr":"string","destination":"string","best_time_to_visit":"string","hero_image_url":"https://... destination image URL from the Sources (omit if none)","days":[{"day":1,"theme":"...","morning":"...","afternoon":"...","evening":"...","food":"...","transport_tip":"...","image_url":"https://... from Sources, optional"}],"budget_hint":"string","packing_tips":["..."],"related_links":[{"label":"Official tourism|Booking|Map|...","url":"https://... must be from Sources"}],"detail_markdown":"string"}',
   insta:

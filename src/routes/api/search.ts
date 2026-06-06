@@ -455,6 +455,7 @@ async function callJSON(apiKey: string, model: string, messages: Array<{ role: s
 function regexIntentHint(q: string): Intent {
   const s = q.toLowerCase();
   if (/price\s+(history|of)|when.*(cheap|drop|sale)|sale dates?/.test(s)) return "price_history";
+  if (/\b(movie|movies|film|films|tv show|tv series|series|netflix|prime video|hbo|hulu|disney\+|to watch|streaming|imdb|rotten tomatoes)\b/.test(s)) return "movies";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
   if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";
@@ -468,19 +469,20 @@ async function classifyIntentLLM(query: string, hint: Intent, apiKey: string): P
         role: "system",
         content:
           "Classify the user's search query into ONE intent. Return ONLY JSON: " +
-          '{"intent":"shopping|price_history|trip|insta|general","confidence":0..1,"reason":"short"}.\n\n' +
+          '{"intent":"shopping|price_history|trip|insta|movies|general","confidence":0..1,"reason":"short"}.\n\n' +
           "Definitions:\n" +
           "- shopping: comparing/choosing between concrete products to BUY NOW with picks, pros/cons, alternatives. Needs a real comparable set.\n" +
           "- price_history: asking about price trends, sale windows, or whether to buy now vs wait.\n" +
           "- trip: travel planning, itineraries, destinations, what to do somewhere.\n" +
           "- insta: instagram captions, hashtags, aesthetic content suggestions.\n" +
+          "- movies: recommendations or 'what to watch' for movies/films/TV shows/series on any streaming platform (Netflix, Prime, HBO, Hulu, Disney+, etc.).\n" +
           "- general: research, how-to, explanations, single-product deep dives, anything that doesn't cleanly fit above.\n\n" +
           "Bias toward 'general' unless the query clearly fits another intent.",
       },
       { role: "user", content: `Query: ${query}\nRegex hint: ${hint}` },
     ])) as { intent?: string; confidence?: number } | null;
 
-    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "general"];
+    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "movies", "general"];
     const picked = allowed.includes(res?.intent as Intent) ? (res!.intent as Intent) : hint;
     const conf = typeof res?.confidence === "number" ? res.confidence : 0;
     return conf < 0.6 ? "general" : picked;
@@ -594,6 +596,14 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
     o.place_suggestions = (o.place_suggestions as Record<string, unknown>[]).map((p) => {
       const np = { ...p };
       if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      return np;
+    });
+  }
+  if (intent === "movies" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("poster_url" in np && !okImage(np.poster_url)) delete np.poster_url;
+      if ("trailer_url" in np && !okLink(np.trailer_url)) delete np.trailer_url;
       return np;
     });
   }

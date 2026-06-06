@@ -1,4 +1,4 @@
-import { TrendingDown, TrendingUp, Minus, HelpCircle, ArrowDownToLine } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus, HelpCircle, ArrowDownToLine, ExternalLink } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
 import type { PriceHistoryStructured } from "@/lib/search/types";
 import { DetailDisclosure } from "./DetailDisclosure";

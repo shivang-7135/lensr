@@ -159,20 +159,24 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           );
           if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
         } else if (finalIntent === "movies" && Array.isArray(cleaned.picks)) {
-          send({ type: "stage", stage: "generate_image" });
+          send({ type: "stage", stage: "fetch_posters" });
           const picks = cleaned.picks as Record<string, unknown>[];
-          const enriched = await Promise.all(picks.slice(0, 6).map(async (p) => {
-            if (p.poster_url && typeof p.poster_url === "string" && /^https?:|^data:/.test(p.poster_url)) return p;
+          const enriched = await Promise.all(picks.map(async (p) => {
             const title = (p.title as string) ?? "";
-            const year = p.year ? ` (${p.year})` : "";
-            const genre = (p.genre as string) ?? "";
-            const url = await generateAIImage(
-              `Cinematic movie poster for the film "${title}"${year}. ${genre ? `Genre: ${genre}.` : ""} Dramatic lighting, moody atmosphere, vertical 2:3 portrait composition, no text or title overlay, photoreal.`,
-              apiKey,
-            );
-            return url ? { ...p, poster_url: url } : p;
+            const year = p.year ? String(p.year) : "";
+            const where = (p.where_to_watch as string) ?? "";
+            const next: Record<string, unknown> = { ...p };
+            // Always attach a watch URL (platform-specific search)
+            next.watch_url = buildWatchUrl(title, where);
+            // Fetch real poster from iTunes if missing
+            const hasReal = typeof p.poster_url === "string" && /^https?:\/\//.test(p.poster_url);
+            if (!hasReal && title) {
+              const poster = await fetchRealPoster(title, year);
+              if (poster) next.poster_url = poster;
+            }
+            return next;
           }));
-          cleaned = { ...cleaned, picks: [...enriched, ...picks.slice(6)] };
+          cleaned = { ...cleaned, picks: enriched };
         }
 
         send({

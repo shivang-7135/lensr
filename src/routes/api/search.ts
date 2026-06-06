@@ -926,10 +926,11 @@ async function fetchWikiImage(q: string): Promise<string | null> {
     if (!pageTitle) return null;
     const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
     const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
-    if (!pr.ok) return null;
-    const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
-    const img = pj.originalimage?.source || pj.thumbnail?.source;
-    if (img && /^https?:\/\//.test(img)) return img;
+    if (pr.ok) {
+      const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
+      const img = pj.originalimage?.source || pj.thumbnail?.source;
+      if (img && /^https?:\/\//.test(img)) return img;
+    }
 
     const pageImageUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=original|thumbnail&pithumbsize=1200&origin=*&titles=${encodeURIComponent(pageTitle)}`;
     const ir = await fetch(pageImageUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });

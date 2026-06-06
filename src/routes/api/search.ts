@@ -968,6 +968,29 @@ function googleMapsSearch(q: string): string {
 function bookingSearch(dest: string): string {
   return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}`;
 }
+function googleSearch(q: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
+
+function generalMediaQueries(query: string, keywords: Keywords): string[] {
+  const s = query.toLowerCase();
+  const topicHints = [
+    { re: /\b(fitness|workout|exercise|gym|strength|cardio|running|yoga)\b/, terms: ["Physical fitness", "Exercise", "Strength training"] },
+    { re: /\b(coding|code|programming|developer|software|javascript|python|typescript)\b/, terms: ["Computer programming", "Software development", "Source code"] },
+    { re: /\b(health|wellness|medical|nutrition|sleep|mental health|medicine)\b/, terms: ["Health", "Wellness", "Medicine"] },
+    { re: /\b(productivity|focus|time management|habits|workflow|deep work)\b/, terms: ["Productivity", "Time management", "Workflow"] },
+    { re: /\b(finance|invest|money|budget|saving|stock|tax)\b/, terms: ["Finance", "Investment", "Personal finance"] },
+    { re: /\b(career|job|resume|interview|promotion|salary)\b/, terms: ["Career", "Job interview", "Résumé"] },
+    { re: /\b(home|house|decor|garden|cleaning|repair)\b/, terms: ["Home", "Interior design", "Garden"] },
+    { re: /\b(tool|tools|app|software|platform|automation)\b/, terms: ["Software", "Tool", "Application software"] },
+    { re: /\b(learn|study|education|course|skill|tutorial)\b/, terms: ["Education", "Learning", "Study skills"] },
+  ];
+  const semanticTerms = topicHints.flatMap((h) => (h.re.test(s) ? h.terms : []));
+  const extracted = [...(keywords.entities ?? []), ...(keywords.keywords ?? [])]
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 1)
+    .slice(0, 5);
+  return [...new Set([...semanticTerms, query, ...extracted])].slice(0, 8);
+}
 
 /** Try Wikipedia for each text query, then og:image of each URL. Returns first hit. */
 async function pickImage(textQueries: string[], fallbackUrls: string[]): Promise<string | null> {

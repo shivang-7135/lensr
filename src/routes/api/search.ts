@@ -16,6 +16,8 @@ const corsHeaders = {
 
 type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "recipes" | "books" | "places" | "events" | "general";
 
+const MEDIA_FETCH_HEADERS = { "User-Agent": "Lensr/1.0 (https://lovable.dev; image enrichment)" };
+
 export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
@@ -308,14 +310,12 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           send({ type: "stage", stage: "fetch_general_media" });
           const isNewsy = /\b(news|today|this week|latest|update|breaking)\b/i.test(query);
           const topUrls = sources.slice(0, 3).map((s) => s.url);
-          if (!cleaned.hero_image_url) {
-            const entities = (keywords.entities ?? []).slice(0, 2);
-            const wikiQueries = [query, ...entities].filter(Boolean) as string[];
-            const img = isNewsy
-              ? (await pickImage([], topUrls)) || (await pickImage(wikiQueries, []))
-              : (await pickImage(wikiQueries, topUrls));
-            if (img) cleaned = { ...cleaned, hero_image_url: img };
-          }
+          const wikiQueries = generalMediaQueries(query, keywords);
+          const img = isNewsy
+            ? (await pickImage([], topUrls)) || (await pickImage(wikiQueries, []))
+            : (await pickImage(wikiQueries, topUrls));
+          const fallback = img || (typeof cleaned.hero_image_url === "string" ? cleaned.hero_image_url : null) || await fetchWikiImage("Knowledge");
+          if (fallback) cleaned = { ...cleaned, hero_image_url: fallback };
           const existingLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
           if (existingLinks.length < 3 && sources.length) {
             const have = new Set(existingLinks.map((l) => l.url));
@@ -324,6 +324,8 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
               .slice(0, 3 - existingLinks.length)
               .map((s) => ({ label: hostnameLabel(s.url), url: s.url }));
             cleaned = { ...cleaned, related_links: [...existingLinks, ...extras] };
+          } else if (existingLinks.length === 0) {
+            cleaned = { ...cleaned, related_links: [{ label: "Search web", url: googleSearch(query) }] };
           }
         }
 
@@ -859,14 +861,14 @@ async function fetchRealPoster(title: string, year: string): Promise<string | nu
     try {
       // 1) Search to resolve the canonical page title
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
-      const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+      const sr = await fetch(searchUrl, { headers: MEDIA_FETCH_HEADERS });
       if (!sr.ok) continue;
       const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
       const pageTitle = sj.query?.search?.[0]?.title;
       if (!pageTitle) continue;
       // 2) Fetch the page summary for the lead image
       const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
-      const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+      const pr = await fetch(summaryUrl, { headers: MEDIA_FETCH_HEADERS });
       if (!pr.ok) continue;
       const pj = (await pr.json()) as {
         originalimage?: { source?: string };
@@ -917,17 +919,26 @@ async function generateAIImage(prompt: string, apiKey: string): Promise<string |
 async function fetchWikiImage(q: string): Promise<string | null> {
   try {
     const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
-    const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    const sr = await fetch(searchUrl, { headers: MEDIA_FETCH_HEADERS });
     if (!sr.ok) return null;
     const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
     const pageTitle = sj.query?.search?.[0]?.title;
     if (!pageTitle) return null;
     const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
-    const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
-    if (!pr.ok) return null;
-    const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
-    const img = pj.originalimage?.source || pj.thumbnail?.source;
-    return img && /^https?:\/\//.test(img) ? img : null;
+    const pr = await fetch(summaryUrl, { headers: MEDIA_FETCH_HEADERS });
+    if (pr.ok) {
+      const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
+      const img = pj.originalimage?.source || pj.thumbnail?.source;
+      if (img && /^https?:\/\//.test(img)) return img;
+    }
+
+    const pageImageUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=original|thumbnail&pithumbsize=1200&origin=*&titles=${encodeURIComponent(pageTitle)}`;
+    const ir = await fetch(pageImageUrl, { headers: MEDIA_FETCH_HEADERS });
+    if (!ir.ok) return null;
+    const ij = (await ir.json()) as { query?: { pages?: Record<string, { original?: { source?: string }; thumbnail?: { source?: string } }> } };
+    const page = Object.values(ij.query?.pages ?? {})[0];
+    const fallback = page?.original?.source || page?.thumbnail?.source;
+    return fallback && /^https?:\/\//.test(fallback) ? fallback : null;
   } catch {
     return null;
   }
@@ -965,6 +976,29 @@ function googleMapsSearch(q: string): string {
 }
 function bookingSearch(dest: string): string {
   return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}`;
+}
+function googleSearch(q: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
+
+function generalMediaQueries(query: string, keywords: Keywords): string[] {
+  const s = query.toLowerCase();
+  const topicHints = [
+    { re: /\b(fitness|workout|exercise|gym|strength|cardio|running|yoga)\b/, terms: ["Physical fitness", "Exercise", "Strength training"] },
+    { re: /\b(coding|code|programming|developer|software|javascript|python|typescript)\b/, terms: ["Programming language", "Programmer", "Computer keyboard"] },
+    { re: /\b(health|wellness|medical|nutrition|sleep|mental health|medicine)\b/, terms: ["Public health", "Healthy diet", "Medicine"] },
+    { re: /\b(productivity|focus|time management|habits|workflow|deep work)\b/, terms: ["Workforce productivity", "Time management", "Pomodoro Technique"] },
+    { re: /\b(finance|invest|money|budget|saving|stock|tax)\b/, terms: ["Finance", "Investment", "Personal finance"] },
+    { re: /\b(career|job|resume|interview|promotion|salary)\b/, terms: ["Career", "Job interview", "Résumé"] },
+    { re: /\b(home|house|decor|garden|cleaning|repair)\b/, terms: ["Home", "Interior design", "Garden"] },
+    { re: /\b(tool|tools|app|software|platform|automation)\b/, terms: ["Software", "Tool", "Application software"] },
+    { re: /\b(learn|study|education|course|skill|tutorial)\b/, terms: ["Education", "Learning", "Study skills"] },
+  ];
+  const semanticTerms = topicHints.flatMap((h) => (h.re.test(s) ? h.terms : []));
+  const extracted = [...(keywords.entities ?? []), ...(keywords.keywords ?? [])]
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 1)
+    .slice(0, 5);
+  return [...new Set([...semanticTerms, query, ...extracted])].slice(0, 8);
 }
 
 /** Try Wikipedia for each text query, then og:image of each URL. Returns first hit. */

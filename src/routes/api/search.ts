@@ -614,6 +614,55 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
   return o;
 }
 
+const STREAMING_SEARCH: Record<string, (q: string) => string> = {
+  netflix: (q) => `https://www.netflix.com/search?q=${q}`,
+  prime: (q) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  "amazon prime": (q) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  "prime video": (q) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  hbo: (q) => `https://play.max.com/search?q=${q}`,
+  max: (q) => `https://play.max.com/search?q=${q}`,
+  "hbo max": (q) => `https://play.max.com/search?q=${q}`,
+  hulu: (q) => `https://www.hulu.com/search?q=${q}`,
+  "disney+": (q) => `https://www.disneyplus.com/search?q=${q}`,
+  disney: (q) => `https://www.disneyplus.com/search?q=${q}`,
+  "apple tv": (q) => `https://tv.apple.com/search?term=${q}`,
+  "apple tv+": (q) => `https://tv.apple.com/search?term=${q}`,
+  peacock: (q) => `https://www.peacocktv.com/search?q=${q}`,
+  paramount: (q) => `https://www.paramountplus.com/search/?query=${q}`,
+  "paramount+": (q) => `https://www.paramountplus.com/search/?query=${q}`,
+  youtube: (q) => `https://www.youtube.com/results?search_query=${q}+movie`,
+};
+
+function buildWatchUrl(title: string, where: string): string {
+  const q = encodeURIComponent(title);
+  const w = (where || "").toLowerCase().trim();
+  for (const key of Object.keys(STREAMING_SEARCH)) {
+    if (w.includes(key)) return STREAMING_SEARCH[key](q);
+  }
+  return `https://www.justwatch.com/us/search?q=${q}`;
+}
+
+async function fetchRealPoster(title: string, year: string): Promise<string | null> {
+  const term = encodeURIComponent(year ? `${title} ${year}` : title);
+  // iTunes Search API — no key, returns official artwork. Try movie then tvSeason.
+  for (const entity of ["movie", "tvSeason"]) {
+    try {
+      const r = await fetch(
+        `https://itunes.apple.com/search?term=${term}&media=${entity === "movie" ? "movie" : "tvShow"}&entity=${entity}&limit=1`,
+        { headers: { "User-Agent": "Lensr/1.0" } },
+      );
+      if (!r.ok) continue;
+      const j = (await r.json()) as { results?: Array<{ artworkUrl100?: string }> };
+      const art = j.results?.[0]?.artworkUrl100;
+      if (art) {
+        // Upscale 100x100 → 600x900 (2:3 portrait)
+        return art.replace(/\/\d+x\d+(bb)?\.(jpg|png)/i, "/600x600bb.jpg");
+      }
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
 async function generateAIImage(prompt: string, apiKey: string): Promise<string | null> {
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

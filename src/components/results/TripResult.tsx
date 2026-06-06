@@ -1,6 +1,6 @@
-import ReactMarkdown from "react-markdown";
 import { Sun, Sunset, Moon, Utensils, Bus, Calendar, Wallet } from "lucide-react";
 import type { TripStructured } from "@/lib/search/types";
+import { DetailDisclosure } from "./DetailDisclosure";
 
 export function TripResult({ data }: { data: TripStructured }) {
   return (
@@ -49,11 +49,8 @@ export function TripResult({ data }: { data: TripStructured }) {
         </div>
       )}
 
-      {data.detail_markdown && (
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-          <ReactMarkdown>{data.detail_markdown}</ReactMarkdown>
-        </article>
-      )}
+      <DetailDisclosure markdown={data.detail_markdown} />
+
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
-import { AgentTimeline } from "@/components/results/AgentTimeline";
+import { ResearchPanel } from "@/components/results/ResearchPanel";
 import { SourcesGrid } from "@/components/results/SourcesGrid";
 import { GeneralResult } from "@/components/results/GeneralResult";
 import { ShoppingResult } from "@/components/results/ShoppingResult";
@@ -100,53 +100,51 @@ export function ResultsStream({ query }: { query: string }) {
   }, [query]);
 
   return (
-    <div className="grid lg:grid-cols-[1fr_320px] gap-8">
-      <article className="space-y-4 min-w-0">
-        <div className="flex items-center gap-3">
-          {intent && (
-            <span className="text-xs uppercase tracking-widest px-2 py-1 rounded-full bg-accent text-accent-foreground font-medium">
-              {INTENT_LABEL[intent]}
-            </span>
-          )}
-          {!done && (
-            <span className="text-xs text-muted-foreground inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-signal animate-pulse" /> researching…
-            </span>
-          )}
-        </div>
+    <div className="mx-auto max-w-3xl w-full space-y-6">
+      <ResearchPanel events={events} done={done} />
 
-        {error && (
-          <div className="p-4 border border-destructive/40 bg-destructive/10 rounded-lg text-sm text-destructive">
-            {error}
-          </div>
+      <div className="flex items-center gap-3">
+        {intent && (
+          <span className="text-xs uppercase tracking-widest px-2 py-1 rounded-full bg-accent/15 text-accent font-medium">
+            {INTENT_LABEL[intent]}
+          </span>
         )}
+        <h1 className="font-display text-2xl sm:text-3xl tracking-tight leading-tight">
+          {query}
+        </h1>
+      </div>
 
-        {final && intent ? (
-          <>
-            {renderStructured(intent, final.structured, final.markdown)}
-            <div className="pt-4">
-              <SourcesGrid sources={final.sources} />
-            </div>
-          </>
-        ) : partial ? (
-          <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
-            <div className="text-xs uppercase tracking-widest text-accent mb-1">Drafting…</div>
-            <p className="text-base leading-relaxed whitespace-pre-wrap">{partial}</p>
-          </div>
-        ) : !error ? (
-          <div className="space-y-2">
-            <div className="h-4 w-2/3 bg-secondary rounded animate-pulse" />
-            <div className="h-4 w-1/2 bg-secondary rounded animate-pulse" />
-            <div className="h-4 w-3/4 bg-secondary rounded animate-pulse" />
-            <div className="h-32 w-full bg-secondary/60 rounded-xl animate-pulse mt-4" />
-          </div>
-        ) : null}
-      </article>
+      {error && (
+        <div className="p-4 border border-destructive/40 bg-destructive/10 rounded-lg text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-      <aside>
-        <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Research timeline</h3>
-        <AgentTimeline events={events} done={done} />
-      </aside>
+      {final && intent ? (
+        <>
+          {renderStructured(intent, final.structured, final.markdown)}
+          <div className="pt-6">
+            <SourcesGrid sources={final.sources} />
+          </div>
+        </>
+      ) : partial ? (
+        <div className="p-5 rounded-xl bg-accent/5 border border-accent/20">
+          <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /> Drafting answer
+          </div>
+          <p className="text-base leading-relaxed whitespace-pre-wrap">{partial}</p>
+        </div>
+      ) : !error ? (
+        <div className="space-y-3">
+          <div className="h-5 w-2/3 bg-secondary rounded animate-pulse" />
+          <div className="h-4 w-1/2 bg-secondary rounded animate-pulse" />
+          <div className="h-40 w-full bg-secondary/60 rounded-xl animate-pulse mt-4" />
+          <div className="grid sm:grid-cols-2 gap-3 mt-2">
+            <div className="h-28 bg-secondary/60 rounded-xl animate-pulse" />
+            <div className="h-28 bg-secondary/60 rounded-xl animate-pulse" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

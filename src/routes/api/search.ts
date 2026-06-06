@@ -615,7 +615,7 @@ function regexIntentHint(q: string): Intent {
   if (/\b(recipe|recipes|cook|cooking|dinner|breakfast|lunch|meal|dish|bake|baking)\b/.test(s)) return "recipes";
   if (/\b(book|books|novel|novels|read|reading|author|fiction|memoir)\b/.test(s)) return "books";
   if (/\b(event|events|concert|concerts|festival|gig|show tonight|live music|things to do tonight|this weekend)\b/.test(s)) return "events";
-  if (/\b(restaurant|restaurants|cafe|cafes|bar|bars|coffee shop|where to eat|best food|ramen|pizza|sushi)\b/.test(s)) return "places";
+  if (/\b(restaurant|restaurants|cafe|cafes|bar|bars|coffee shop|where to eat|best food|food near|dinner spot|breakfast spot|brunch|bakery|dessert|ramen|pizza|sushi|tacos|burger)\b/.test(s)) return "places";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
   if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";

@@ -150,14 +150,77 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             apiKey,
           );
           if (imgUrl) cleaned = { ...cleaned, generated_image_url: imgUrl };
-        } else if (finalIntent === "trip" && !cleaned.hero_image_url) {
-          send({ type: "stage", stage: "generate_image" });
+          if (Array.isArray(cleaned.place_suggestions)) {
+            const places = cleaned.place_suggestions as Record<string, unknown>[];
+            const enrichedPlaces = await Promise.all(places.map(async (p) => {
+              const name = (p.name as string) ?? "";
+              const next: Record<string, unknown> = { ...p };
+              if (!p.url && name) next.url = googleMapsSearch(name);
+              if (!p.image_url && name) {
+                const img = await fetchWikiImage(name);
+                if (img) next.image_url = img;
+              }
+              return next;
+            }));
+            cleaned = { ...cleaned, place_suggestions: enrichedPlaces };
+          }
+        } else if (finalIntent === "trip") {
+          send({ type: "stage", stage: "fetch_trip_media" });
           const dest = (cleaned.destination as string) || query;
-          const imgUrl = await generateAIImage(
-            `Travel hero photograph of ${dest}. Iconic landmark, golden hour, wide cinematic composition, vibrant colors, no text or watermark.`,
-            apiKey,
-          );
-          if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
+          if (!cleaned.hero_image_url) {
+            const real = await pickImage([dest, `${dest} skyline`, `${dest} city`], []);
+            if (real) {
+              cleaned = { ...cleaned, hero_image_url: real };
+            } else {
+              const ai = await generateAIImage(
+                `Travel hero photograph of ${dest}. Iconic landmark, golden hour, wide cinematic composition, vibrant colors, no text or watermark.`,
+                apiKey,
+              );
+              if (ai) cleaned = { ...cleaned, hero_image_url: ai };
+            }
+          }
+          if (Array.isArray(cleaned.days)) {
+            const days = cleaned.days as Record<string, unknown>[];
+            const enrichedDays = await Promise.all(days.map(async (d) => {
+              if (d.image_url) return d;
+              const theme = (d.theme as string) ?? "";
+              const img = theme ? await fetchWikiImage(`${theme} ${dest}`) : null;
+              return img ? { ...d, image_url: img } : d;
+            }));
+            cleaned = { ...cleaned, days: enrichedDays };
+          }
+          const tripLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
+          const tripHave = new Set(tripLinks.map((l) => l.label.toLowerCase()));
+          const tripCtas: Array<{ label: string; url: string }> = [...tripLinks];
+          if (!tripHave.has("google maps")) tripCtas.push({ label: "Google Maps", url: googleMapsSearch(dest) });
+          if (!tripHave.has("booking.com")) tripCtas.push({ label: "Booking.com", url: bookingSearch(dest) });
+          if (!tripHave.has("flights")) tripCtas.push({ label: "Flights", url: `https://www.google.com/travel/flights?q=${encodeURIComponent(`flights to ${dest}`)}` });
+          cleaned = { ...cleaned, related_links: tripCtas.slice(0, 6) };
+        } else if (finalIntent === "shopping" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_product_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enrichedPicks = await Promise.all(picks.map(async (p) => {
+            const name = (p.name as string) ?? "";
+            const next: Record<string, unknown> = { ...p };
+            const existingLinks = Array.isArray(p.buy_links) ? (p.buy_links as Array<{ label: string; url: string }>) : [];
+            const fallbackUrls = [
+              ...existingLinks.map((b) => b.url),
+              ...(typeof p.url === "string" ? [p.url] : []),
+            ];
+            if (!p.image_url && name) {
+              const img = await pickImage([`${name} product`, name], fallbackUrls);
+              if (img) next.image_url = img;
+            }
+            const have = new Set(existingLinks.map((b) => b.label.toLowerCase()));
+            const links = [...existingLinks];
+            if (typeof p.url === "string" && !existingLinks.some((b) => b.url === p.url)) {
+              links.unshift({ label: "View", url: p.url });
+            }
+            if (!have.has("amazon") && name) links.push({ label: "Amazon", url: amazonSearch(name) });
+            if (links.length) next.buy_links = links.slice(0, 4);
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enrichedPicks };
         } else if (finalIntent === "movies" && Array.isArray(cleaned.picks)) {
           send({ type: "stage", stage: "fetch_posters" });
           const picks = cleaned.picks as Record<string, unknown>[];
@@ -241,6 +304,27 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             return next;
           }));
           cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "general") {
+          send({ type: "stage", stage: "fetch_general_media" });
+          const isNewsy = /\b(news|today|this week|latest|update|breaking)\b/i.test(query);
+          const topUrls = sources.slice(0, 3).map((s) => s.url);
+          if (!cleaned.hero_image_url) {
+            const entities = (keywords.entities ?? []).slice(0, 2);
+            const wikiQueries = [query, ...entities].filter(Boolean) as string[];
+            const img = isNewsy
+              ? (await pickImage([], topUrls)) || (await pickImage(wikiQueries, []))
+              : (await pickImage(wikiQueries, topUrls));
+            if (img) cleaned = { ...cleaned, hero_image_url: img };
+          }
+          const existingLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
+          if (existingLinks.length < 3 && sources.length) {
+            const have = new Set(existingLinks.map((l) => l.url));
+            const extras = sources
+              .filter((s) => !have.has(s.url))
+              .slice(0, 3 - existingLinks.length)
+              .map((s) => ({ label: hostnameLabel(s.url), url: s.url }));
+            cleaned = { ...cleaned, related_links: [...existingLinks, ...extras] };
+          }
         }
 
         send({
@@ -531,7 +615,7 @@ function regexIntentHint(q: string): Intent {
   if (/\b(recipe|recipes|cook|cooking|dinner|breakfast|lunch|meal|dish|bake|baking)\b/.test(s)) return "recipes";
   if (/\b(book|books|novel|novels|read|reading|author|fiction|memoir)\b/.test(s)) return "books";
   if (/\b(event|events|concert|concerts|festival|gig|show tonight|live music|things to do tonight|this weekend)\b/.test(s)) return "events";
-  if (/\b(restaurant|restaurants|cafe|cafes|bar|bars|coffee shop|where to eat|best food|ramen|pizza|sushi)\b/.test(s)) return "places";
+  if (/\b(restaurant|restaurants|cafe|cafes|bar|bars|coffee shop|where to eat|best food|food near|dinner spot|breakfast spot|brunch|bakery|dessert|ramen|pizza|sushi|tacos|burger)\b/.test(s)) return "places";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
   if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";
@@ -866,5 +950,84 @@ async function fetchBookCover(title: string, author: string): Promise<string | n
     return null;
   }
 }
+
+/* ---------------- Generic helpers: image picking + URL builders ---------------- */
+
+function hostnameLabel(u: string): string {
+  try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+}
+
+function amazonSearch(q: string): string {
+  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}`;
+}
+function googleMapsSearch(q: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+function bookingSearch(dest: string): string {
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}`;
+}
+
+/** Try Wikipedia for each text query, then og:image of each URL. Returns first hit. */
+async function pickImage(textQueries: string[], fallbackUrls: string[]): Promise<string | null> {
+  for (const q of textQueries) {
+    if (!q) continue;
+    try {
+      const img = await fetchWikiImage(q);
+      if (img) return img;
+    } catch { /* try next */ }
+  }
+  for (const u of fallbackUrls) {
+    if (!u) continue;
+    try {
+      const img = await fetchOgImage(u);
+      if (img) return img;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+/** Fetch a URL's HTML and extract og:image / twitter:image. */
+async function fetchOgImage(url: string): Promise<string | null> {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 3500);
+    const r = await fetch(url, {
+      signal: ctl.signal,
+      headers: { "User-Agent": "Lensr/1.0 (lovable.dev)", Accept: "text/html" },
+      redirect: "follow",
+    });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const ct = r.headers.get("content-type") || "";
+    if (!/text\/html/i.test(ct)) return null;
+    const reader = r.body?.getReader();
+    if (!reader) return null;
+    const dec = new TextDecoder();
+    let html = "";
+    let bytes = 0;
+    while (bytes < 120_000) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      html += dec.decode(value, { stream: true });
+      if (/<\/head>/i.test(html)) break;
+    }
+    try { await reader.cancel(); } catch { /* ignore */ }
+    const match =
+      html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    const img = match?.[1];
+    if (!img) return null;
+    if (img.startsWith("//")) return `https:${img}`;
+    if (img.startsWith("/")) {
+      try { return new URL(img, url).toString(); } catch { return null; }
+    }
+    return /^https?:\/\//.test(img) ? img : null;
+  } catch {
+    return null;
+  }
+}
+
 
 

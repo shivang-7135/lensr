@@ -1,76 +1,67 @@
-# Plan: Light Mode + Categories + Motion/Image Polish
+## Goal
 
-## 1. Light/Dark Theme Switch
+Bring the remaining categories up to the same bar as Movies / Books / Places / Recipes / Events: pull a **real image** (Wikipedia first, Open Graph fallback) and guarantee at least one **click-to-action** link per item — even when the LLM omits one.
 
-**Tokens (`src/styles.css`)**
-- Move current dark values from `:root` into `.dark { ... }` (and keep as default for SSR by also setting on `:root` initially, then overridden).
-- Add a parallel light palette under `:root` (no `.dark` class):
-  - Background: soft pearl `oklch(0.985 0.005 250)` with subtle warm tint
-  - Foreground: `oklch(0.18 0.02 270)`
-  - Glass tints flipped: white-on-light becomes `oklch(0 0 0 / 4–10%)` with darker rim and softer drop shadow
-  - Accent kept (azure) but slightly deepened for contrast on light
-  - Aurora gradient: lighter pastel version (mint, sky, lilac) at lower opacity
-- Both palettes share the same token names so all components work unchanged.
+## Scope of changes (only `src/routes/api/search.ts` + a few result cards + types)
 
-**Theme provider (`src/components/ThemeProvider.tsx` — new)**
-- Reads `localStorage("lensr-theme")` with fallback to `prefers-color-scheme`.
-- Applies/removes `dark` class on `<html>`.
-- Exposes `useTheme()` returning `{ theme, setTheme, toggle }`.
-- Mount inside `RootComponent` in `__root.tsx`. Inline a tiny `<script>` in `RootShell` head to set the class before hydration (prevents flash).
+### 1. New shared helpers in `src/routes/api/search.ts`
 
-**Toggle UI (`src/components/ThemeToggle.tsx` — new)**
-- Sun/Moon lucide icon button using `glass-soft` style, placed in `SiteHeader`.
-- Smooth icon crossfade on click.
+- `fetchOgImage(url)` — fetch the source URL (HEAD-checked, 2s timeout, only HTML), regex-extract `og:image` / `twitter:image`. Used as a fallback when Wikipedia returns nothing.
+- `pickImage(queries[], fallbackUrls[])` — try `fetchWikiImage` for each query string, then `fetchOgImage` for each fallback URL, return first hit. Reused everywhere.
+- `amazonSearch(q)`, `googleShoppingSearch(q)`, `googleMapsSearch(q)`, `bookingSearch(dest)`, `googleNewsSearch(q)` — small URL builders (mirroring existing `buildWatchUrl`).
 
-**Root shell**
-- Replace hardcoded `<html className="dark">` with `<html>` + the no-flash script. Aurora blob colors switched via CSS variables (already tokenized) so they adapt automatically.
+### 2. Shopping / Gifts / Tech (all already route to `shopping` intent)
 
-## 2. Twenty Search Categories on Homepage
+In the `finalIntent === "shopping"` enrichment branch:
+- For every pick, if `image_url` missing → `pickImage([name + " product", name], buy_links/url)`.
+- Always ensure `buy_links` has at least an **Amazon search link** (`amazonSearch(name)`) when none survived sanitization, plus the original `url` if present.
+- Mark the Amazon link with `label: "Amazon"` so the existing pill renders the right text.
 
-Replace the current 4-card `FEATURES` grid with a richer **"What can you ask Lensr?"** section: 20 curated example queries grouped by intent, each clickable to pre-fill the search bar and submit.
+No card changes needed — `ShoppingResult.tsx` already renders `image_url` + `buy_links` pills.
 
-**Categories (20)**
-Shopping · Price history · Trip planning · Insta caption · Recipe ideas · Gift finder · Book recommendations · Movie/TV picks · Coding help · Career & resume · Fitness plan · Health questions · Finance & investing · Local events · Restaurant picks · Home decor · Tech comparisons · Learning path · News digest · Productivity tools
+### 3. Trip + Insta places (destination photos + Maps/Booking)
 
-**Implementation**
-- New `src/lib/search/categories.ts` exporting an array of `{ id, label, icon, example, gradient }`.
-- New `src/components/CategoryGrid.tsx`: responsive 4-col grid of `glass glass-hover` chips. Click → navigates to `/?q=<example>` (or calls the same submit path the SearchBar uses). Stagger fade-up animation.
-- `SearchBar` gets an optional `initialQuery` prop (or reads `?q=`) so click-to-search works.
-- Section heading: "Try asking…" + small caption.
+Trip enrichment:
+- If `hero_image_url` missing → `pickImage([destination, destination + " skyline"], [])` (replaces the current AI-generated hero — real photo preferred, AI is fallback only).
+- For each `days[i]` missing `image_url` → `fetchWikiImage(theme + " " + destination)`.
+- Ensure `related_links` always contains at least: **Google Maps** (`googleMapsSearch(destination)`), **Booking.com** (`bookingSearch(destination)`), **Google Flights** search.
 
-## 3. Background Animation + Image Capability Enhancement
+Insta enrichment:
+- For each `place_suggestions[i]` missing `image_url` → `fetchWikiImage(name)`.
+- Ensure each suggestion has a `url` → fall back to `googleMapsSearch(name)`.
+- Update `InstaResult.tsx` to render a small **"Open in Maps"** pill on each suggestion (uses `ExternalLink` icon already imported pattern from MoviesResult).
 
-**Background motion (`__root.tsx` + `styles.css`)**
-- Add a third slow drift animation with different easing/duration so blobs no longer move in sync.
-- Add a faint `conic-gradient` "shimmer" layer that rotates over 60s.
-- Add subtle parallax: blobs translate slightly on mouse move (throttled, respects `prefers-reduced-motion`).
-- New `@keyframes aurora-rotate` + `@utility aurora-shimmer`. All animations gated behind `@media (prefers-reduced-motion: no-preference)`.
+### 4. Restaurants / Food → Places
 
-**Image capability enhancements**
-- **SafeImage upgrade (`src/components/results/SafeImage.tsx`)**: add shimmer skeleton while loading, smooth fade-in on load, optional `aspectRatio` prop, click-to-zoom lightbox using a Radix Dialog.
-- **InstaResult**: when AI image is generated, show a polaroid-style glass frame with subtle tilt + hover lift; allow download button.
-- **ShoppingResult**: product images get hover zoom (transform scale 1.04) and a glass overlay revealing the "Buy" pills on hover.
-- **GeneralResult**: if a sufficiently good hero image URL exists in sources, render a wide hero card at the top of the answer.
-- **AI image prompt (`src/routes/api/search.ts`)**: extend the gemini image step to also run for `trip` (a hero destination shot) and `shopping` (a clean studio mockup) when no real product image was found in sources. Keep sanitization: AI-generated URLs are allowed as-is (they're data URLs / blob refs, not external).
+The `regexIntentHint` already catches `restaurant|cafe|...`. Strengthen it: add `food near me`, `where to eat`, `dinner spot`, `breakfast spot`, `brunch`, `bakery`, `dessert`, `bar near`. No new intent — guarantees the food queries land on the Places card with its existing Maps/website CTAs.
 
-## Out of Scope
-- No backend schema changes.
-- No auth changes.
-- No changes to search agent prompts beyond the additional image step described.
+### 5. News digest + remaining general categories (fitness, health, career, finance, code, learn, home, tools, news)
 
-## Files Touched
-**New**
-- `src/components/ThemeProvider.tsx`
-- `src/components/ThemeToggle.tsx`
-- `src/components/CategoryGrid.tsx`
-- `src/lib/search/categories.ts`
+These stay on `general` intent (per user — "for other remaining categories use wikipedia"). In the general post-process branch (new):
+- If `hero_image_url` missing → `pickImage([query, first entity from keywords], firstFewSourceUrls)`.
+- Promote sources into `related_links` when the LLM didn't fill them: take top 3 sources, label = hostname, so the card always has external CTAs (read-on-publisher behavior).
+- For news-style queries (regex: `news|today|this week|latest|update`) prefer Open Graph image of the top source over Wikipedia so users see the actual article hero.
 
-**Edited**
-- `src/styles.css` (light palette, motion utilities)
-- `src/routes/__root.tsx` (theme bootstrap, extra aurora layer, parallax)
-- `src/routes/index.tsx` (CategoryGrid replaces FEATURES)
-- `src/components/SiteHeader.tsx` (ThemeToggle)
-- `src/components/SearchBar.tsx` (initialQuery / `?q=` support)
-- `src/components/results/SafeImage.tsx` (skeleton, lightbox)
-- `src/components/results/InstaResult.tsx`, `ShoppingResult.tsx`, `GeneralResult.tsx` (image polish)
-- `src/routes/api/search.ts` (extend AI image generation to trip/shopping fallbacks)
+`GeneralResult.tsx` already renders `hero_image_url` and `related_links` — no changes needed.
+
+### 6. Types
+
+`src/lib/search/types.ts`:
+- `InstaCaption.place_suggestions` items already allow `url`/`image_url` — no change.
+- No new fields; existing schema covers everything.
+
+## Files
+
+```text
+src/routes/api/search.ts            # main edits: helpers + enrichment branches + regex
+src/components/results/InstaResult.tsx   # add "Open in Maps" pill per suggestion
+```
+
+That's it — Shopping / Trip / General cards already render the new fields, so no UI rewrites are needed beyond the Insta pill.
+
+## Behavior contract
+
+After this change, every result card across all 20 homepage categories will:
+1. Show a real image (Wikipedia → Open Graph → AI fallback already in place for trip/insta hero).
+2. Have at least one external CTA button per item (Amazon / Maps / Booking / publisher).
+3. Never block on slow image lookups — all image fetches run in `Promise.all` with try/catch, and the card renders without an image if everything fails (existing `SafeImage` handles that).

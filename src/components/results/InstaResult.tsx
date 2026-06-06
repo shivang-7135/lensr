@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, MapPin, Sparkles } from "lucide-react";
+import { Copy, Check, MapPin, Sparkles, ExternalLink } from "lucide-react";
 import type { InstaStructured } from "@/lib/search/types";
 import { DetailDisclosure } from "./DetailDisclosure";
 import { SafeImage } from "./SafeImage";
@@ -78,11 +78,17 @@ export function InstaResult({ data }: { data: InstaStructured }) {
                 )}
                 <div className="p-3 flex items-start gap-2 flex-1 min-w-0">
                   <MapPin className="h-4 w-4 text-accent mt-0.5 shrink-0" />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm">
                       {p.url ? <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-accent underline-offset-4 hover:underline">{p.name}</a> : p.name}
                     </div>
                     {p.why && <div className="text-xs text-muted-foreground">{p.why}</div>}
+                    {p.url && (
+                      <a href={p.url} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-xs font-medium px-2.5 py-1 rounded-full glass-soft hover:border-accent/60 hover:text-accent transition">
+                        Open in Maps <ExternalLink className="h-3 w-3 opacity-70" />
+                      </a>
+                    )}
                   </div>
                 </div>
               </li>

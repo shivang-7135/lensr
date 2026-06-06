@@ -16,6 +16,8 @@ const corsHeaders = {
 
 type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "recipes" | "books" | "places" | "events" | "general";
 
+const MEDIA_FETCH_HEADERS = { "User-Agent": "Lensr/1.0 (https://lovable.dev; image enrichment)" };
+
 export const Route = createFileRoute("/api/search")({
   server: {
     handlers: {
@@ -861,14 +863,14 @@ async function fetchRealPoster(title: string, year: string): Promise<string | nu
     try {
       // 1) Search to resolve the canonical page title
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
-      const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+      const sr = await fetch(searchUrl, { headers: MEDIA_FETCH_HEADERS });
       if (!sr.ok) continue;
       const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
       const pageTitle = sj.query?.search?.[0]?.title;
       if (!pageTitle) continue;
       // 2) Fetch the page summary for the lead image
       const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
-      const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+      const pr = await fetch(summaryUrl, { headers: MEDIA_FETCH_HEADERS });
       if (!pr.ok) continue;
       const pj = (await pr.json()) as {
         originalimage?: { source?: string };

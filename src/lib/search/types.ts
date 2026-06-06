@@ -4,6 +4,10 @@ export type SearchIntent =
   | "trip"
   | "insta"
   | "movies"
+  | "recipes"
+  | "books"
+  | "places"
+  | "events"
   | "general";
 
 export interface Source { title: string; url: string; image_url?: string }
@@ -107,12 +111,98 @@ export interface MoviesStructured {
   detail_markdown?: string;
 }
 
+export interface RecipePick {
+  title: string;
+  cuisine?: string;
+  time?: string;
+  difficulty?: string;
+  servings?: string;
+  calories?: string;
+  ingredients?: string[];
+  steps?: string[];
+  tags?: string[];
+  image_url?: string;
+  source_url?: string;
+  why_recommended?: string;
+}
+export interface RecipesStructured {
+  tldr: string;
+  recommendation?: string;
+  picks?: RecipePick[];
+  detail_markdown?: string;
+}
+
+export interface BookPick {
+  title: string;
+  author?: string;
+  year?: string | number;
+  genre?: string;
+  rating?: string;
+  pages?: string | number;
+  why_recommended?: string;
+  synopsis?: string;
+  cover_url?: string;
+  goodreads_url?: string;
+  buy_url?: string;
+}
+export interface BooksStructured {
+  tldr: string;
+  recommendation?: string;
+  picks?: BookPick[];
+  detail_markdown?: string;
+}
+
+export interface PlacePick {
+  name: string;
+  category?: string;
+  price_level?: string;
+  rating?: string;
+  address?: string;
+  neighborhood?: string;
+  hours?: string;
+  why_recommended?: string;
+  must_try?: string[];
+  image_url?: string;
+  maps_url?: string;
+  website_url?: string;
+}
+export interface PlacesStructured {
+  tldr: string;
+  recommendation?: string;
+  picks?: PlacePick[];
+  detail_markdown?: string;
+}
+
+export interface EventPick {
+  title: string;
+  date?: string;
+  time?: string;
+  venue?: string;
+  city?: string;
+  category?: string;
+  price?: string;
+  why_recommended?: string;
+  image_url?: string;
+  tickets_url?: string;
+  source_url?: string;
+}
+export interface EventsStructured {
+  tldr: string;
+  recommendation?: string;
+  picks?: EventPick[];
+  detail_markdown?: string;
+}
+
 export type StructuredResult =
   | ({ intent: "shopping" } & ShoppingStructured)
   | ({ intent: "price_history" } & PriceHistoryStructured)
   | ({ intent: "trip" } & TripStructured)
   | ({ intent: "insta" } & InstaStructured)
   | ({ intent: "movies" } & MoviesStructured)
+  | ({ intent: "recipes" } & RecipesStructured)
+  | ({ intent: "books" } & BooksStructured)
+  | ({ intent: "places" } & PlacesStructured)
+  | ({ intent: "events" } & EventsStructured)
   | ({ intent: "general" } & GeneralStructured);
 
 // --- Streamed events from /api/search ---

@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
-type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "general";
+type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "recipes" | "books" | "places" | "events" | "general";
 
 export const Route = createFileRoute("/api/search")({
   server: {
@@ -177,6 +177,70 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             return next;
           }));
           cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "books" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_covers" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (b) => {
+            const title = (b.title as string) ?? "";
+            const author = (b.author as string) ?? "";
+            const next: Record<string, unknown> = { ...b };
+            next.goodreads_url = `https://www.goodreads.com/search?q=${encodeURIComponent(`${title} ${author}`.trim())}`;
+            next.buy_url = `https://www.amazon.com/s?k=${encodeURIComponent(`${title} ${author} book`.trim())}`;
+            if (title) {
+              const cover = await fetchBookCover(title, author);
+              if (cover) next.cover_url = cover;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "places" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_place_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (p) => {
+            const name = (p.name as string) ?? "";
+            const neighborhood = (p.neighborhood as string) ?? "";
+            const address = (p.address as string) ?? "";
+            const next: Record<string, unknown> = { ...p };
+            const mapQ = encodeURIComponent([name, address || neighborhood].filter(Boolean).join(" "));
+            next.maps_url = `https://www.google.com/maps/search/?api=1&query=${mapQ}`;
+            if (!p.image_url && name) {
+              const img = await fetchWikiImage(`${name} restaurant`) || await fetchWikiImage(name);
+              if (img) next.image_url = img;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "recipes" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_recipe_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (r) => {
+            const title = (r.title as string) ?? "";
+            const cuisine = (r.cuisine as string) ?? "";
+            const next: Record<string, unknown> = { ...r };
+            if (!r.image_url && title) {
+              const img = await fetchWikiImage(`${title} dish`) || await fetchWikiImage(title) || (cuisine ? await fetchWikiImage(`${cuisine} cuisine`) : null);
+              if (img) next.image_url = img;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "events" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_event_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.map(async (e) => {
+            const title = (e.title as string) ?? "";
+            const city = (e.city as string) ?? "";
+            const next: Record<string, unknown> = { ...e };
+            if (!e.tickets_url && !e.source_url) {
+              next.tickets_url = `https://www.ticketmaster.com/search?q=${encodeURIComponent(`${title} ${city}`.trim())}`;
+            }
+            if (!e.image_url && title) {
+              const img = await fetchWikiImage(title) || (city ? await fetchWikiImage(city) : null);
+              if (img) next.image_url = img;
+            }
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enriched };
         }
 
         send({
@@ -228,6 +292,10 @@ function planQueries(query: string, intent: Intent, keywords: string[]): string[
     trip: [`things to do ${query}`, `${query} itinerary`, `best time to visit ${base}`, `${base} local food`],
     insta: [`${query} caption ideas`, `${base} instagram hashtags`, `${base} aesthetic spots`],
     movies: [`${query} best 2025`, `${base} review imdb`, `${base} where to watch streaming`, `${base} rotten tomatoes`],
+    recipes: [`${query} recipe`, `easy ${base} recipe`, `${base} ingredients steps`, `best ${base} recipe blog`],
+    books: [`best books ${query}`, `${base} goodreads`, `${base} novel review`, `books similar to ${base}`],
+    places: [`best ${query}`, `${base} tripadvisor review`, `${base} address hours`, `top rated ${base}`],
+    events: [`${query} events`, `${base} schedule tickets`, `upcoming ${base}`, `${base} this weekend`],
     general: [query, `${query} explained`, `${query} latest`, `what is ${base}`],
   };
   return plans[intent].slice(0, 4);
@@ -460,6 +528,10 @@ function regexIntentHint(q: string): Intent {
   const s = q.toLowerCase();
   if (/price\s+(history|of)|when.*(cheap|drop|sale)|sale dates?/.test(s)) return "price_history";
   if (/\b(movie|movies|film|films|tv show|tv series|series|netflix|prime video|hbo|hulu|disney\+|to watch|streaming|imdb|rotten tomatoes)\b/.test(s)) return "movies";
+  if (/\b(recipe|recipes|cook|cooking|dinner|breakfast|lunch|meal|dish|bake|baking)\b/.test(s)) return "recipes";
+  if (/\b(book|books|novel|novels|read|reading|author|fiction|memoir)\b/.test(s)) return "books";
+  if (/\b(event|events|concert|concerts|festival|gig|show tonight|live music|things to do tonight|this weekend)\b/.test(s)) return "events";
+  if (/\b(restaurant|restaurants|cafe|cafes|bar|bars|coffee shop|where to eat|best food|ramen|pizza|sushi)\b/.test(s)) return "places";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
   if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";
@@ -479,14 +551,18 @@ async function classifyIntentLLM(query: string, hint: Intent, apiKey: string): P
           "- price_history: asking about price trends, sale windows, or whether to buy now vs wait.\n" +
           "- trip: travel planning, itineraries, destinations, what to do somewhere.\n" +
           "- insta: instagram captions, hashtags, aesthetic content suggestions.\n" +
-          "- movies: recommendations or 'what to watch' for movies/films/TV shows/series on any streaming platform (Netflix, Prime, HBO, Hulu, Disney+, etc.).\n" +
+          "- movies: recommendations or 'what to watch' for movies/films/TV shows/series.\n" +
+          "- recipes: cooking — recipes, meals, dishes, what to cook, ingredients/steps.\n" +
+          "- books: reading recommendations — novels, non-fiction, what to read next.\n" +
+          "- places: where to eat/drink/hang out — restaurants, cafés, bars, specific venues in a city.\n" +
+          "- events: live happenings — concerts, festivals, things to do tonight/this weekend.\n" +
           "- general: research, how-to, explanations, single-product deep dives, anything that doesn't cleanly fit above.\n\n" +
           "Bias toward 'general' unless the query clearly fits another intent.",
       },
       { role: "user", content: `Query: ${query}\nRegex hint: ${hint}` },
     ])) as { intent?: string; confidence?: number } | null;
 
-    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "movies", "general"];
+    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "movies", "recipes", "books", "places", "events", "general"];
     const picked = allowed.includes(res?.intent as Intent) ? (res!.intent as Intent) : hint;
     const conf = typeof res?.confidence === "number" ? res.confidence : 0;
     return conf < 0.6 ? "general" : picked;
@@ -506,6 +582,10 @@ function validateIntent(intent: Intent, obj: Record<string, unknown>): boolean {
     case "trip": return arr("days");
     case "insta": return arr("captions");
     case "movies": return arr("picks");
+    case "recipes": return arr("picks");
+    case "books": return arr("picks");
+    case "places": return arr("picks");
+    case "events": return arr("picks");
     case "general": return true;
     default: return false;
   }
@@ -528,7 +608,15 @@ const SYS_PROMPT: Record<Intent, string> = {
   insta:
     "You are an Instagram caption writer. Produce 3-5 caption styles, 12-20 hashtags, and place suggestions based on the evidence.",
   movies:
-    "You are a film and TV critic. Recommend 4-8 specific titles that match the user's query, grounded ONLY in the evidence. For each title give a tight 'why_recommended' (1 sentence), genre, runtime, rating (IMDb/RT if present), where_to_watch (Netflix/Prime/HBO/etc) and a short synopsis. Never invent titles.",
+    "You are a film and TV critic. Recommend 4-8 specific titles that match the user's query, grounded ONLY in the evidence. For each give why_recommended (1 sentence), genre, runtime, rating, where_to_watch and a short synopsis. Never invent titles.",
+  recipes:
+    "You are a home-cook recipe curator. Recommend 3-6 concrete recipes that match the query. For each give time, difficulty, servings, a short ingredient list (5-10 items), 4-6 numbered steps, and source_url pointing to a real recipe page from the Sources. Never invent recipes.",
+  books:
+    "You are a literary recommender. Suggest 4-8 specific real books matching the query. For each give author, year, genre, rating if known, a 1-sentence why_recommended, and a 2-3 sentence synopsis. Use only real titles found in the evidence.",
+  places:
+    "You are a local guide. Recommend 3-6 specific real venues (restaurants, cafés, bars) matching the query. For each give category, price_level ($/$$/$$$), rating, neighborhood, hours if known, why_recommended, and must_try items. Use only real venues from the evidence.",
+  events:
+    "You are an events curator. Recommend 3-6 specific real upcoming events matching the query. For each give date, time, venue, city, category, price if known, why_recommended, and tickets_url from the Sources. Use only real events found in the evidence.",
   general:
     "Answer directly using the evidence. Be specific, accurate, well-structured. Include key facts and a rich markdown detail section with [n] citations.",
 };
@@ -544,6 +632,14 @@ const SCHEMA_HINT: Record<Intent, string> = {
     '{"tldr":"string","scene":"2-3 sentence vivid visual description of the ideal shot","mood":"string","captions":[{"style":"witty|poetic|minimal|bold|funny","text":"..."}],"hashtags":["#..."],"place_suggestions":[{"name":"...","why":"...","url":"https://... from Sources","image_url":"https://... from Sources, optional"}],"detail_markdown":"string"}',
   movies:
     '{"tldr":"1-2 sentence overview of what to watch","recommendation":"title of the top pick","picks":[{"title":"...","year":"YYYY","genre":"Thriller|Drama|...","rating":"e.g. 8.4 IMDb or 92% RT","runtime":"e.g. 2h 14m","where_to_watch":"Netflix|Prime|HBO|Hulu|...","why_recommended":"1 sentence on why it fits the query","synopsis":"2-3 sentence plot summary","poster_url":"https://... ONLY if a real poster URL appears in the Sources list (omit otherwise)","trailer_url":"https://www.youtube.com/... if found in Sources (omit otherwise)"}],"detail_markdown":"string"}\n\nIMPORTANT: 4-8 picks. Use real titles only. Never fabricate poster_url or trailer_url — omit those fields if no source covers them.',
+  recipes:
+    '{"tldr":"string","recommendation":"top recipe title","picks":[{"title":"...","cuisine":"Italian|Thai|...","time":"e.g. 30 min","difficulty":"Easy|Medium|Hard","servings":"e.g. 4","calories":"e.g. 520 kcal","ingredients":["..."],"steps":["1. ...","2. ..."],"tags":["weeknight","gluten-free"],"source_url":"https://... MUST be a Sources URL","why_recommended":"1 sentence"}],"detail_markdown":"string"}\n\nIMPORTANT: 3-6 picks. source_url must come from the numbered Sources.',
+  books:
+    '{"tldr":"string","recommendation":"top book title","picks":[{"title":"...","author":"...","year":"YYYY","genre":"Sci-Fi|Memoir|...","rating":"e.g. 4.3 Goodreads","pages":"e.g. 320","why_recommended":"1 sentence","synopsis":"2-3 sentences"}],"detail_markdown":"string"}\n\nIMPORTANT: 4-8 real books. Never invent titles or authors.',
+  places:
+    '{"tldr":"string","recommendation":"top venue name","picks":[{"name":"...","category":"e.g. Ramen, Japanese","price_level":"$|$$|$$$","rating":"e.g. 4.6","address":"...","neighborhood":"...","hours":"e.g. 11am-10pm","why_recommended":"1 sentence","must_try":["dish or item"],"website_url":"https://... from Sources if available"}],"detail_markdown":"string"}\n\nIMPORTANT: 3-6 real venues. Use only venues mentioned in the evidence.',
+  events:
+    '{"tldr":"string","recommendation":"top event title","picks":[{"title":"...","date":"e.g. Sat Jun 14","time":"e.g. 8pm","venue":"...","city":"...","category":"Concert|Festival|Comedy|...","price":"e.g. from $35","why_recommended":"1 sentence","tickets_url":"https://... MUST be a Sources URL","source_url":"https://... MUST be a Sources URL"}],"detail_markdown":"string"}\n\nIMPORTANT: 3-6 real upcoming events. tickets_url and source_url must come from the numbered Sources.',
   general:
     '{"tldr":"string","key_facts":["..."],"hero_image_url":"https://... a representative image URL drawn from the Sources (omit if none)","related_links":[{"label":"short label","url":"https://... must be one of the Sources URLs"}],"detail_markdown":"string (rich markdown with sections)"}',
 };
@@ -611,6 +707,32 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
       return np;
     });
   }
+  if (intent === "recipes" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("source_url" in np && !okLink(np.source_url)) delete np.source_url;
+      return np;
+    });
+  }
+  if (intent === "places" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("website_url" in np && !okLink(np.website_url)) delete np.website_url;
+      return np;
+    });
+  }
+  if (intent === "events" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("tickets_url" in np && !okLink(np.tickets_url)) delete np.tickets_url;
+      if ("source_url" in np && !okLink(np.source_url)) delete np.source_url;
+      return np;
+    });
+  }
+  // books has no URL fields to sanitize (we synthesize them in enrichment)
   return o;
 }
 
@@ -706,4 +828,43 @@ async function generateAIImage(prompt: string, apiKey: string): Promise<string |
     return null;
   }
 }
+
+/** Generic Wikipedia lead-image fetcher — used for places, recipes, events. */
+async function fetchWikiImage(q: string): Promise<string | null> {
+  try {
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
+    const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    if (!sr.ok) return null;
+    const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
+    const pageTitle = sj.query?.search?.[0]?.title;
+    if (!pageTitle) return null;
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
+    const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    if (!pr.ok) return null;
+    const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
+    const img = pj.originalimage?.source || pj.thumbnail?.source;
+    return img && /^https?:\/\//.test(img) ? img : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Open Library cover fetcher for books. */
+async function fetchBookCover(title: string, author: string): Promise<string | null> {
+  try {
+    const url = `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}${author ? `&author=${encodeURIComponent(author)}` : ""}&limit=1`;
+    const r = await fetch(url, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { docs?: Array<{ cover_i?: number; isbn?: string[] }> };
+    const doc = j.docs?.[0];
+    if (!doc) return null;
+    if (doc.cover_i) return `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`;
+    const isbn = doc.isbn?.[0];
+    if (isbn) return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 

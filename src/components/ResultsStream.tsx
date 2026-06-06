@@ -8,6 +8,10 @@ import { TripResult } from "@/components/results/TripResult";
 import { PriceHistoryResult } from "@/components/results/PriceHistoryResult";
 import { InstaResult } from "@/components/results/InstaResult";
 import { MoviesResult } from "@/components/results/MoviesResult";
+import { RecipesResult } from "@/components/results/RecipesResult";
+import { BooksResult } from "@/components/results/BooksResult";
+import { PlacesResult } from "@/components/results/PlacesResult";
+import { EventsResult } from "@/components/results/EventsResult";
 
 const INTENT_LABEL: Record<SearchIntent, string> = {
   shopping: "Shopping",
@@ -15,6 +19,10 @@ const INTENT_LABEL: Record<SearchIntent, string> = {
   trip: "Trip planner",
   insta: "Instagram",
   movies: "Movies & TV",
+  recipes: "Recipes",
+  books: "Books",
+  places: "Places",
+  events: "Events",
   general: "General",
 };
 
@@ -31,6 +39,10 @@ function isUsable(intent: SearchIntent, d: Record<string, unknown> | null): bool
     case "trip": return hasArr(d, "days");
     case "insta": return hasArr(d, "captions");
     case "movies": return hasArr(d, "picks");
+    case "recipes": return hasArr(d, "picks");
+    case "books": return hasArr(d, "picks");
+    case "places": return hasArr(d, "picks");
+    case "events": return hasArr(d, "picks");
     case "price_history": return d.typical_price_range != null || d.buy_now_score != null;
     case "general": return !!(d.tldr || d.detail_markdown || hasArr(d, "key_facts"));
     default: return false;
@@ -66,6 +78,10 @@ function renderStructured(
     case "price_history": return <PriceHistoryResult data={withIntent as Extract<StructuredResult, { intent: "price_history" }>} />;
     case "insta": return <InstaResult data={withIntent as Extract<StructuredResult, { intent: "insta" }>} />;
     case "movies": return <MoviesResult data={withIntent as Extract<StructuredResult, { intent: "movies" }>} />;
+    case "recipes": return <RecipesResult data={withIntent as Extract<StructuredResult, { intent: "recipes" }>} />;
+    case "books": return <BooksResult data={withIntent as Extract<StructuredResult, { intent: "books" }>} />;
+    case "places": return <PlacesResult data={withIntent as Extract<StructuredResult, { intent: "places" }>} />;
+    case "events": return <EventsResult data={withIntent as Extract<StructuredResult, { intent: "events" }>} />;
     default: return <GeneralResult data={withIntent as Extract<StructuredResult, { intent: "general" }>} sources={sources} />;
   }
 }

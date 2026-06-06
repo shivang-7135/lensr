@@ -1,62 +1,50 @@
-# Fix: real grounded answers + better fallback + smarter intent
+## Goal
 
-The current screen happens because the second LLM call (structured-JSON synthesis with `google/gemini-2.5-flash`) returned something that didn't parse as JSON, so `synthesizeStructured` returned the placeholder `{ tldr: "No structured answer available.", detail_markdown: evidence }`. The frontend then rendered that as a Shopping card with an empty "Recommendation" and dumped the evidence brief verbatim. The evidence brief itself is real grounded data — we just throw it away into raw markdown.
+Make result cards visually richer and more actionable by surfacing **images** and **buy / related links** per intent. Today, shopping picks have a "Source" link but no thumbnail; trip days have no destination imagery; insta place suggestions have no preview; general results have only a sources list.
 
-Three real problems to fix:
+## Scope (frontend + synthesis JSON only)
 
-1. **Structured synthesis is brittle** — single JSON-mode call on `gemini-2.5-flash` with no retry, no JSON repair, no schema validation. When it fails the UI shows the broken card.
-2. **Intent classification is regex-based** — "Buy porsche gt3 germany" matches `/buy|under \$|best/`, so it gets shoved into the Shopping schema even though there is no comparable product list to pick from. Wrong template → wrong card.
-3. **Fallback rendering is wrong** — when synthesis fails we should render the evidence as a clean General result with proper markdown (GFM, citations linked to sources), not a half-empty Shopping card.
+No new search providers, no scrapers. Images and links come from the LLM synthesis step (Gemini `google_search` grounding already returns URLs in citations), enriched with one optional thumbnail field per item.
 
 ## Changes
 
-### 1. `src/routes/api/search.ts` — backend pipeline
+### 1. Schema additions — `src/lib/search/types.ts`
 
-- **LLM-based intent classification.** Replace `classifyIntent` regex with one `gemini-2.5-flash-lite` JSON call: `{"intent": "...", "confidence": 0..1, "reason": "..."}`. Keep the regex as a fast pre-hint passed to the LLM. For low confidence (<0.6) default to `general` instead of guessing shopping.
-- **Stronger grounded research.** Keep `google/gemini-2.5-flash` with `google_search` tool, but:
-  - Drop the "do not write the final answer yet" framing and instead ask for: a 350–600 word evidence brief, with inline `[n]` citations and a numbered `Sources:` block at the end, sorted by usefulness.
-  - Parse sources from grounding metadata in all known response shapes (`message.grounding_metadata`, `message.metadata.grounding_metadata`, `candidates[0].grounding_metadata`, OpenAI `tool_calls` results). Fall back to URL extraction from the brief — but only keep URLs that also appear in the model's `Sources:` list to avoid noise.
-  - If 0 sources come back, surface a `stage: "search_loop_1_empty"` event and skip structured synthesis entirely → render as General with the evidence.
-- **Robust structured synthesis.**
-  - Switch the synthesis model to `google/gemini-3-flash-preview` (stronger JSON adherence) and keep `response_format: json_object`.
-  - On parse failure, run a single repair pass: send the bad output back to `gemini-2.5-flash-lite` with `"Repair this to valid JSON matching schema X. Reply with JSON only."` and try once more.
-  - Validate the returned object against the intent schema (required keys present and non-empty: `tldr`, plus intent-specific keys like `picks` for shopping, `days` for trip, `captions` for insta). If validation fails, **degrade to `general`** with `{ tldr, key_facts, detail_markdown: evidence }` instead of returning a broken card.
-  - Never return the literal string `"No structured answer available."` — that's the tell that everything below it is unstyled markdown.
-- **Sources fidelity.** Pass the real numbered source list into the synthesis prompt and force the model to reuse those exact `[n]` indices in `detail_markdown` so citations resolve.
+Add optional fields (all nullable, render-only):
 
-### 2. `src/components/ResultsStream.tsx` — render the right card
+- `ShoppingPick`: `image_url?: string`, `buy_links?: { label: string; url: string }[]`
+- `TripDay`: `image_url?: string`
+- `TripStructured`: `related_links?: { label: string; url: string }[]` (official tourism site, booking, maps)
+- `InstaStructured.place_suggestions[]`: `image_url?: string`
+- `GeneralStructured`: `related_links?: { label: string; url: string }[]`
+- `Source`: `image_url?: string` (favicon or og:image, optional)
 
-- New helper `pickRenderer(intent, structured, markdown, sources)`:
-  - If `structured` is missing or its intent-required keys are empty (e.g. shopping with no `picks`, trip with no `days`), render as `GeneralResult` built from `{ tldr: structured?.tldr || firstParagraph(markdown), key_facts: [], detail_markdown: markdown }`.
-  - Otherwise render the intent-specific component as today.
-- Render inline `[n]` citations in markdown as clickable superscript links to the corresponding source URL (small `<a>` custom component in `ReactMarkdown`).
+### 2. Synthesis prompt — `src/routes/api/search.ts`
 
-### 3. `src/components/results/GeneralResult.tsx` — usable as the universal fallback
+Update `schema_hint`-equivalent JSON instructions for each intent to request:
 
-- Already has `tldr` + `key_facts` + `detail_markdown`. Ensure `remark-gfm` is wired (it is) and add the same citation-link renderer so `[1]`, `[2]` inside the brief become clickable.
-- If `key_facts` is empty, hide the heading instead of rendering an empty section.
+- `image_url`: a direct https image URL drawn from the evidence (product page hero, Wikipedia/Wikimedia, official site). Must be a real URL found in research, never invented. Omit if none.
+- `buy_links` (shopping) / `related_links` (trip, general): 2–4 labeled outbound links picked from the gathered sources (e.g. "Amazon", "Best Buy", "Official site", "Wikipedia"). Reuse source URLs already cited.
 
-### 4. `src/components/results/AgentTimeline.tsx`
+Validation: drop any `image_url` / link whose URL doesn't appear in the gathered sources list (prevents hallucinated images). If validation strips everything, the field is simply absent and the UI falls back to current layout.
 
-- Add a row for the new `search_loop_1_empty` stage so the user sees "no sources found — falling back to model knowledge" instead of silent confusion.
+also with text generate the result in insta as well.
 
-## Out of scope
+price history should also show like a graph to get the lowest price possible.
 
-- Real Serper pipeline (already lives on the Python backend; this fix is for the TS fallback the preview is hitting).
-- Adding caching, save-search, or multi-loop reflection in the TS fallback.
-- Redesigning the Shopping/Trip/Price/Insta cards themselves — they're fine when fed valid data.
+### 3. UI rendering
 
-## Technical notes
+- `**ShoppingResult.tsx**`: add a 16:9 thumbnail at the top of each pick card (lazy-loaded, rounded, `object-cover`, graceful fallback to a tinted placeholder on `onError`). Replace the single "Source" link with a row of "Buy" pill buttons from `buy_links`, falling back to `url`.
+- `**TripResult.tsx**`: add a slim banner image per day (when present) and a "Related links" row under the itinerary.
+- `**InstaResult.tsx**`: render thumbnails next to place suggestions.
+- `**GeneralResult.tsx**`: render "Related links" pill row above the detail disclosure.
+- `**SourcesGrid.tsx**`: if `image_url` (favicon) is present, show a 16px icon next to the title.
 
-- JSON repair pass uses a small/cheap model so it doesn't add meaningful latency.
-- Intent schema validation lives next to `SCHEMA_HINT` in `search.ts` as a tiny `validators: Record<Intent, (o) => boolean>` map — no Zod needed server-side.
-- Citation linker: a `components={{ a, sup }}` map on `ReactMarkdown` resolves `[n]` → `sources[n-1].url`. A small regex pre-pass in markdown converts `[1]` → `[<sup>1</sup>](#)` only when the integer is within range.
-- Keep the existing SSE event shape; only add `search_loop_1_empty` and reuse `stage`.
+All images use `loading="lazy"`, `referrerPolicy="no-referrer"`, and a `useState`-based error fallback that hides the `<img>` if it fails to load — so broken hotlinks never leave a broken-image icon visible.
 
-## After this
+### 4. Out of scope
 
-For "Buy porsche gt3 germany" the user will see either:
-- a clean **General** card with TL;DR, key facts, and the full grounded brief with linked `[n]` citations, or
-- a real Shopping card with actual picks (e.g., 992 GT3, GT3 Touring, GT3 RS) only when there's enough comparable data to fill it.
-
-No more half-empty cards saying "No structured answer available." over real research.
+- Server-side OG/favicon scraping
+- Image proxy / caching
+- Affiliate link rewriting
+- Backend Python pipeline changes (it already passes structured JSON through; once the JSON contract is widened, the Python agents can opt in later)

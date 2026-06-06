@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
-type Intent = "shopping" | "price_history" | "trip" | "insta" | "general";
+type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "general";
 
 export const Route = createFileRoute("/api/search")({
   server: {
@@ -140,7 +140,7 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
         // Strip hallucinated image URLs / links that aren't in the sources list
         let cleaned = sanitizeStructured(finalIntent, structured, sources);
 
-        // Image enrichment: generate a hero shot when we don't already have one from sources
+        // Image enrichment: generate a hero/poster shot when we don't already have one from sources
         if (finalIntent === "insta") {
           send({ type: "stage", stage: "generate_image" });
           const scene = (cleaned.scene as string) || query;
@@ -158,14 +158,21 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             apiKey,
           );
           if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
-        } else if (finalIntent === "general" && !cleaned.hero_image_url) {
+        } else if (finalIntent === "movies" && Array.isArray(cleaned.picks)) {
           send({ type: "stage", stage: "generate_image" });
-          const subject = (cleaned.tldr as string)?.slice(0, 140) || query;
-          const imgUrl = await generateAIImage(
-            `Editorial hero illustration representing: ${subject}. Modern, minimal, vivid colors, soft gradients, no text.`,
-            apiKey,
-          );
-          if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.slice(0, 6).map(async (p) => {
+            if (p.poster_url && typeof p.poster_url === "string" && /^https?:|^data:/.test(p.poster_url)) return p;
+            const title = (p.title as string) ?? "";
+            const year = p.year ? ` (${p.year})` : "";
+            const genre = (p.genre as string) ?? "";
+            const url = await generateAIImage(
+              `Cinematic movie poster for the film "${title}"${year}. ${genre ? `Genre: ${genre}.` : ""} Dramatic lighting, moody atmosphere, vertical 2:3 portrait composition, no text or title overlay, photoreal.`,
+              apiKey,
+            );
+            return url ? { ...p, poster_url: url } : p;
+          }));
+          cleaned = { ...cleaned, picks: [...enriched, ...picks.slice(6)] };
         }
 
         send({
@@ -216,6 +223,7 @@ function planQueries(query: string, intent: Intent, keywords: string[]): string[
     price_history: [`${query} price history`, `${query} sale dates`, `when is ${base} cheapest`, `${base} discount calendar`],
     trip: [`things to do ${query}`, `${query} itinerary`, `best time to visit ${base}`, `${base} local food`],
     insta: [`${query} caption ideas`, `${base} instagram hashtags`, `${base} aesthetic spots`],
+    movies: [`${query} best 2025`, `${base} review imdb`, `${base} where to watch streaming`, `${base} rotten tomatoes`],
     general: [query, `${query} explained`, `${query} latest`, `what is ${base}`],
   };
   return plans[intent].slice(0, 4);
@@ -447,6 +455,7 @@ async function callJSON(apiKey: string, model: string, messages: Array<{ role: s
 function regexIntentHint(q: string): Intent {
   const s = q.toLowerCase();
   if (/price\s+(history|of)|when.*(cheap|drop|sale)|sale dates?/.test(s)) return "price_history";
+  if (/\b(movie|movies|film|films|tv show|tv series|series|netflix|prime video|hbo|hulu|disney\+|to watch|streaming|imdb|rotten tomatoes)\b/.test(s)) return "movies";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
   if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";
@@ -460,19 +469,20 @@ async function classifyIntentLLM(query: string, hint: Intent, apiKey: string): P
         role: "system",
         content:
           "Classify the user's search query into ONE intent. Return ONLY JSON: " +
-          '{"intent":"shopping|price_history|trip|insta|general","confidence":0..1,"reason":"short"}.\n\n' +
+          '{"intent":"shopping|price_history|trip|insta|movies|general","confidence":0..1,"reason":"short"}.\n\n' +
           "Definitions:\n" +
           "- shopping: comparing/choosing between concrete products to BUY NOW with picks, pros/cons, alternatives. Needs a real comparable set.\n" +
           "- price_history: asking about price trends, sale windows, or whether to buy now vs wait.\n" +
           "- trip: travel planning, itineraries, destinations, what to do somewhere.\n" +
           "- insta: instagram captions, hashtags, aesthetic content suggestions.\n" +
+          "- movies: recommendations or 'what to watch' for movies/films/TV shows/series on any streaming platform (Netflix, Prime, HBO, Hulu, Disney+, etc.).\n" +
           "- general: research, how-to, explanations, single-product deep dives, anything that doesn't cleanly fit above.\n\n" +
           "Bias toward 'general' unless the query clearly fits another intent.",
       },
       { role: "user", content: `Query: ${query}\nRegex hint: ${hint}` },
     ])) as { intent?: string; confidence?: number } | null;
 
-    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "general"];
+    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "movies", "general"];
     const picked = allowed.includes(res?.intent as Intent) ? (res!.intent as Intent) : hint;
     const conf = typeof res?.confidence === "number" ? res.confidence : 0;
     return conf < 0.6 ? "general" : picked;
@@ -491,7 +501,9 @@ function validateIntent(intent: Intent, obj: Record<string, unknown>): boolean {
     case "price_history": return has("typical_price_range") || has("buy_now_score");
     case "trip": return arr("days");
     case "insta": return arr("captions");
+    case "movies": return arr("picks");
     case "general": return true;
+    default: return false;
   }
 }
 
@@ -511,6 +523,8 @@ const SYS_PROMPT: Record<Intent, string> = {
     "You are a senior trip planner. Build a concrete, walkable itinerary grounded in the evidence. Prefer specific venues over generic advice.",
   insta:
     "You are an Instagram caption writer. Produce 3-5 caption styles, 12-20 hashtags, and place suggestions based on the evidence.",
+  movies:
+    "You are a film and TV critic. Recommend 4-8 specific titles that match the user's query, grounded ONLY in the evidence. For each title give a tight 'why_recommended' (1 sentence), genre, runtime, rating (IMDb/RT if present), where_to_watch (Netflix/Prime/HBO/etc) and a short synopsis. Never invent titles.",
   general:
     "Answer directly using the evidence. Be specific, accurate, well-structured. Include key facts and a rich markdown detail section with [n] citations.",
 };
@@ -524,6 +538,8 @@ const SCHEMA_HINT: Record<Intent, string> = {
     '{"tldr":"string","destination":"string","best_time_to_visit":"string","hero_image_url":"https://... destination image URL from the Sources (omit if none)","days":[{"day":1,"theme":"...","morning":"...","afternoon":"...","evening":"...","food":"...","transport_tip":"...","image_url":"https://... from Sources, optional"}],"budget_hint":"string","packing_tips":["..."],"related_links":[{"label":"Official tourism|Booking|Map|...","url":"https://... must be from Sources"}],"detail_markdown":"string"}',
   insta:
     '{"tldr":"string","scene":"2-3 sentence vivid visual description of the ideal shot","mood":"string","captions":[{"style":"witty|poetic|minimal|bold|funny","text":"..."}],"hashtags":["#..."],"place_suggestions":[{"name":"...","why":"...","url":"https://... from Sources","image_url":"https://... from Sources, optional"}],"detail_markdown":"string"}',
+  movies:
+    '{"tldr":"1-2 sentence overview of what to watch","recommendation":"title of the top pick","picks":[{"title":"...","year":"YYYY","genre":"Thriller|Drama|...","rating":"e.g. 8.4 IMDb or 92% RT","runtime":"e.g. 2h 14m","where_to_watch":"Netflix|Prime|HBO|Hulu|...","why_recommended":"1 sentence on why it fits the query","synopsis":"2-3 sentence plot summary","poster_url":"https://... ONLY if a real poster URL appears in the Sources list (omit otherwise)","trailer_url":"https://www.youtube.com/... if found in Sources (omit otherwise)"}],"detail_markdown":"string"}\n\nIMPORTANT: 4-8 picks. Use real titles only. Never fabricate poster_url or trailer_url — omit those fields if no source covers them.',
   general:
     '{"tldr":"string","key_facts":["..."],"hero_image_url":"https://... a representative image URL drawn from the Sources (omit if none)","related_links":[{"label":"short label","url":"https://... must be one of the Sources URLs"}],"detail_markdown":"string (rich markdown with sections)"}',
 };
@@ -580,6 +596,14 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
     o.place_suggestions = (o.place_suggestions as Record<string, unknown>[]).map((p) => {
       const np = { ...p };
       if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      return np;
+    });
+  }
+  if (intent === "movies" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("poster_url" in np && !okImage(np.poster_url)) delete np.poster_url;
+      if ("trailer_url" in np && !okLink(np.trailer_url)) delete np.trailer_url;
       return np;
     });
   }

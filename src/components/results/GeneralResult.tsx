@@ -20,7 +20,7 @@ export function GeneralResult({
     <div className="space-y-6">
       {data.hero_image_url && (
         <div className="glass overflow-hidden aspect-[21/9] p-0">
-          <SafeImage src={data.hero_image_url} alt="" className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
+          <SafeImage src={data.hero_image_url} alt="" className="w-full h-full object-cover" />
         </div>
       )}
       {data.tldr && (

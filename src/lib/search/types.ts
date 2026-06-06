@@ -3,6 +3,7 @@ export type SearchIntent =
   | "price_history"
   | "trip"
   | "insta"
+  | "movies"
   | "general";
 
 export interface Source { title: string; url: string; image_url?: string }
@@ -86,11 +87,31 @@ export interface GeneralStructured {
   detail_markdown?: string;
 }
 
+export interface MoviePick {
+  title: string;
+  year?: string | number;
+  genre?: string;
+  rating?: string;
+  where_to_watch?: string;
+  runtime?: string;
+  why_recommended?: string;
+  synopsis?: string;
+  poster_url?: string;
+  trailer_url?: string;
+}
+export interface MoviesStructured {
+  tldr: string;
+  recommendation?: string;
+  picks?: MoviePick[];
+  detail_markdown?: string;
+}
+
 export type StructuredResult =
   | ({ intent: "shopping" } & ShoppingStructured)
   | ({ intent: "price_history" } & PriceHistoryStructured)
   | ({ intent: "trip" } & TripStructured)
   | ({ intent: "insta" } & InstaStructured)
+  | ({ intent: "movies" } & MoviesStructured)
   | ({ intent: "general" } & GeneralStructured);
 
 // --- Streamed events from /api/search ---

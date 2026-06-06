@@ -951,4 +951,83 @@ async function fetchBookCover(title: string, author: string): Promise<string | n
   }
 }
 
+/* ---------------- Generic helpers: image picking + URL builders ---------------- */
+
+function hostnameLabel(u: string): string {
+  try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+}
+
+function amazonSearch(q: string): string {
+  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}`;
+}
+function googleMapsSearch(q: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+function bookingSearch(dest: string): string {
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}`;
+}
+
+/** Try Wikipedia for each text query, then og:image of each URL. Returns first hit. */
+async function pickImage(textQueries: string[], fallbackUrls: string[]): Promise<string | null> {
+  for (const q of textQueries) {
+    if (!q) continue;
+    try {
+      const img = await fetchWikiImage(q);
+      if (img) return img;
+    } catch { /* try next */ }
+  }
+  for (const u of fallbackUrls) {
+    if (!u) continue;
+    try {
+      const img = await fetchOgImage(u);
+      if (img) return img;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+/** Fetch a URL's HTML and extract og:image / twitter:image. */
+async function fetchOgImage(url: string): Promise<string | null> {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 3500);
+    const r = await fetch(url, {
+      signal: ctl.signal,
+      headers: { "User-Agent": "Lensr/1.0 (lovable.dev)", Accept: "text/html" },
+      redirect: "follow",
+    });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const ct = r.headers.get("content-type") || "";
+    if (!/text\/html/i.test(ct)) return null;
+    const reader = r.body?.getReader();
+    if (!reader) return null;
+    const dec = new TextDecoder();
+    let html = "";
+    let bytes = 0;
+    while (bytes < 120_000) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      html += dec.decode(value, { stream: true });
+      if (/<\/head>/i.test(html)) break;
+    }
+    try { await reader.cancel(); } catch { /* ignore */ }
+    const match =
+      html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    const img = match?.[1];
+    if (!img) return null;
+    if (img.startsWith("//")) return `https:${img}`;
+    if (img.startsWith("/")) {
+      try { return new URL(img, url).toString(); } catch { return null; }
+    }
+    return /^https?:\/\//.test(img) ? img : null;
+  } catch {
+    return null;
+  }
+}
+
+
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChevronDown } from "lucide-react";
 
 export function DetailDisclosure({ markdown, label = "Show full analysis" }: { markdown?: string; label?: string }) {

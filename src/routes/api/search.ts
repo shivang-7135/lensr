@@ -921,13 +921,13 @@ async function generateAIImage(prompt: string, apiKey: string): Promise<string |
 async function fetchWikiImage(q: string): Promise<string | null> {
   try {
     const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
-    const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    const sr = await fetch(searchUrl, { headers: MEDIA_FETCH_HEADERS });
     if (!sr.ok) return null;
     const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
     const pageTitle = sj.query?.search?.[0]?.title;
     if (!pageTitle) return null;
     const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
-    const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    const pr = await fetch(summaryUrl, { headers: MEDIA_FETCH_HEADERS });
     if (pr.ok) {
       const pj = (await pr.json()) as { originalimage?: { source?: string }; thumbnail?: { source?: string } };
       const img = pj.originalimage?.source || pj.thumbnail?.source;
@@ -935,7 +935,7 @@ async function fetchWikiImage(q: string): Promise<string | null> {
     }
 
     const pageImageUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=original|thumbnail&pithumbsize=1200&origin=*&titles=${encodeURIComponent(pageTitle)}`;
-    const ir = await fetch(pageImageUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+    const ir = await fetch(pageImageUrl, { headers: MEDIA_FETCH_HEADERS });
     if (!ir.ok) return null;
     const ij = (await ir.json()) as { query?: { pages?: Record<string, { original?: { source?: string }; thumbnail?: { source?: string } }> } };
     const page = Object.values(ij.query?.pages ?? {})[0];

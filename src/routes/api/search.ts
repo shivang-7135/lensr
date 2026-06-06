@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
-type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "general";
+type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "recipes" | "books" | "places" | "events" | "general";
 
 export const Route = createFileRoute("/api/search")({
   server: {
@@ -228,6 +228,10 @@ function planQueries(query: string, intent: Intent, keywords: string[]): string[
     trip: [`things to do ${query}`, `${query} itinerary`, `best time to visit ${base}`, `${base} local food`],
     insta: [`${query} caption ideas`, `${base} instagram hashtags`, `${base} aesthetic spots`],
     movies: [`${query} best 2025`, `${base} review imdb`, `${base} where to watch streaming`, `${base} rotten tomatoes`],
+    recipes: [`${query} recipe`, `easy ${base} recipe`, `${base} ingredients steps`, `best ${base} recipe blog`],
+    books: [`best books ${query}`, `${base} goodreads`, `${base} novel review`, `books similar to ${base}`],
+    places: [`best ${query}`, `${base} tripadvisor review`, `${base} address hours`, `top rated ${base}`],
+    events: [`${query} events`, `${base} schedule tickets`, `upcoming ${base}`, `${base} this weekend`],
     general: [query, `${query} explained`, `${query} latest`, `what is ${base}`],
   };
   return plans[intent].slice(0, 4);
@@ -460,6 +464,10 @@ function regexIntentHint(q: string): Intent {
   const s = q.toLowerCase();
   if (/price\s+(history|of)|when.*(cheap|drop|sale)|sale dates?/.test(s)) return "price_history";
   if (/\b(movie|movies|film|films|tv show|tv series|series|netflix|prime video|hbo|hulu|disney\+|to watch|streaming|imdb|rotten tomatoes)\b/.test(s)) return "movies";
+  if (/\b(recipe|recipes|cook|cooking|dinner|breakfast|lunch|meal|dish|bake|baking)\b/.test(s)) return "recipes";
+  if (/\b(book|books|novel|novels|read|reading|author|fiction|memoir)\b/.test(s)) return "books";
+  if (/\b(event|events|concert|concerts|festival|gig|show tonight|live music|things to do tonight|this weekend)\b/.test(s)) return "events";
+  if (/\b(restaurant|restaurants|cafe|cafes|bar|bars|coffee shop|where to eat|best food|ramen|pizza|sushi)\b/.test(s)) return "places";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
   if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";

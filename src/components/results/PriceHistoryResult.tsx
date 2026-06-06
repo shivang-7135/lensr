@@ -94,6 +94,18 @@ export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
         </div>
       )}
 
+
+      {!!data.related_links?.length && (
+        <div className="flex flex-wrap gap-2">
+          {data.related_links.map((l, i) => (
+            <a key={i} href={l.url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full glass-soft hover:border-accent/60 hover:text-accent transition">
+              {l.label} <ExternalLink className="h-3 w-3 opacity-70" />
+            </a>
+          ))}
+        </div>
+      )}
+
       <DetailDisclosure markdown={data.detail_markdown} />
     </div>
   );

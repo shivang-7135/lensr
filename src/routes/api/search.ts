@@ -487,14 +487,18 @@ async function classifyIntentLLM(query: string, hint: Intent, apiKey: string): P
           "- price_history: asking about price trends, sale windows, or whether to buy now vs wait.\n" +
           "- trip: travel planning, itineraries, destinations, what to do somewhere.\n" +
           "- insta: instagram captions, hashtags, aesthetic content suggestions.\n" +
-          "- movies: recommendations or 'what to watch' for movies/films/TV shows/series on any streaming platform (Netflix, Prime, HBO, Hulu, Disney+, etc.).\n" +
+          "- movies: recommendations or 'what to watch' for movies/films/TV shows/series.\n" +
+          "- recipes: cooking — recipes, meals, dishes, what to cook, ingredients/steps.\n" +
+          "- books: reading recommendations — novels, non-fiction, what to read next.\n" +
+          "- places: where to eat/drink/hang out — restaurants, cafés, bars, specific venues in a city.\n" +
+          "- events: live happenings — concerts, festivals, things to do tonight/this weekend.\n" +
           "- general: research, how-to, explanations, single-product deep dives, anything that doesn't cleanly fit above.\n\n" +
           "Bias toward 'general' unless the query clearly fits another intent.",
       },
       { role: "user", content: `Query: ${query}\nRegex hint: ${hint}` },
     ])) as { intent?: string; confidence?: number } | null;
 
-    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "movies", "general"];
+    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "movies", "recipes", "books", "places", "events", "general"];
     const picked = allowed.includes(res?.intent as Intent) ? (res!.intent as Intent) : hint;
     const conf = typeof res?.confidence === "number" ? res.confidence : 0;
     return conf < 0.6 ? "general" : picked;
@@ -514,6 +518,10 @@ function validateIntent(intent: Intent, obj: Record<string, unknown>): boolean {
     case "trip": return arr("days");
     case "insta": return arr("captions");
     case "movies": return arr("picks");
+    case "recipes": return arr("picks");
+    case "books": return arr("picks");
+    case "places": return arr("picks");
+    case "events": return arr("picks");
     case "general": return true;
     default: return false;
   }
@@ -536,7 +544,15 @@ const SYS_PROMPT: Record<Intent, string> = {
   insta:
     "You are an Instagram caption writer. Produce 3-5 caption styles, 12-20 hashtags, and place suggestions based on the evidence.",
   movies:
-    "You are a film and TV critic. Recommend 4-8 specific titles that match the user's query, grounded ONLY in the evidence. For each title give a tight 'why_recommended' (1 sentence), genre, runtime, rating (IMDb/RT if present), where_to_watch (Netflix/Prime/HBO/etc) and a short synopsis. Never invent titles.",
+    "You are a film and TV critic. Recommend 4-8 specific titles that match the user's query, grounded ONLY in the evidence. For each give why_recommended (1 sentence), genre, runtime, rating, where_to_watch and a short synopsis. Never invent titles.",
+  recipes:
+    "You are a home-cook recipe curator. Recommend 3-6 concrete recipes that match the query. For each give time, difficulty, servings, a short ingredient list (5-10 items), 4-6 numbered steps, and source_url pointing to a real recipe page from the Sources. Never invent recipes.",
+  books:
+    "You are a literary recommender. Suggest 4-8 specific real books matching the query. For each give author, year, genre, rating if known, a 1-sentence why_recommended, and a 2-3 sentence synopsis. Use only real titles found in the evidence.",
+  places:
+    "You are a local guide. Recommend 3-6 specific real venues (restaurants, cafés, bars) matching the query. For each give category, price_level ($/$$/$$$), rating, neighborhood, hours if known, why_recommended, and must_try items. Use only real venues from the evidence.",
+  events:
+    "You are an events curator. Recommend 3-6 specific real upcoming events matching the query. For each give date, time, venue, city, category, price if known, why_recommended, and tickets_url from the Sources. Use only real events found in the evidence.",
   general:
     "Answer directly using the evidence. Be specific, accurate, well-structured. Include key facts and a rich markdown detail section with [n] citations.",
 };
@@ -552,6 +568,14 @@ const SCHEMA_HINT: Record<Intent, string> = {
     '{"tldr":"string","scene":"2-3 sentence vivid visual description of the ideal shot","mood":"string","captions":[{"style":"witty|poetic|minimal|bold|funny","text":"..."}],"hashtags":["#..."],"place_suggestions":[{"name":"...","why":"...","url":"https://... from Sources","image_url":"https://... from Sources, optional"}],"detail_markdown":"string"}',
   movies:
     '{"tldr":"1-2 sentence overview of what to watch","recommendation":"title of the top pick","picks":[{"title":"...","year":"YYYY","genre":"Thriller|Drama|...","rating":"e.g. 8.4 IMDb or 92% RT","runtime":"e.g. 2h 14m","where_to_watch":"Netflix|Prime|HBO|Hulu|...","why_recommended":"1 sentence on why it fits the query","synopsis":"2-3 sentence plot summary","poster_url":"https://... ONLY if a real poster URL appears in the Sources list (omit otherwise)","trailer_url":"https://www.youtube.com/... if found in Sources (omit otherwise)"}],"detail_markdown":"string"}\n\nIMPORTANT: 4-8 picks. Use real titles only. Never fabricate poster_url or trailer_url — omit those fields if no source covers them.',
+  recipes:
+    '{"tldr":"string","recommendation":"top recipe title","picks":[{"title":"...","cuisine":"Italian|Thai|...","time":"e.g. 30 min","difficulty":"Easy|Medium|Hard","servings":"e.g. 4","calories":"e.g. 520 kcal","ingredients":["..."],"steps":["1. ...","2. ..."],"tags":["weeknight","gluten-free"],"source_url":"https://... MUST be a Sources URL","why_recommended":"1 sentence"}],"detail_markdown":"string"}\n\nIMPORTANT: 3-6 picks. source_url must come from the numbered Sources.',
+  books:
+    '{"tldr":"string","recommendation":"top book title","picks":[{"title":"...","author":"...","year":"YYYY","genre":"Sci-Fi|Memoir|...","rating":"e.g. 4.3 Goodreads","pages":"e.g. 320","why_recommended":"1 sentence","synopsis":"2-3 sentences"}],"detail_markdown":"string"}\n\nIMPORTANT: 4-8 real books. Never invent titles or authors.',
+  places:
+    '{"tldr":"string","recommendation":"top venue name","picks":[{"name":"...","category":"e.g. Ramen, Japanese","price_level":"$|$$|$$$","rating":"e.g. 4.6","address":"...","neighborhood":"...","hours":"e.g. 11am-10pm","why_recommended":"1 sentence","must_try":["dish or item"],"website_url":"https://... from Sources if available"}],"detail_markdown":"string"}\n\nIMPORTANT: 3-6 real venues. Use only venues mentioned in the evidence.',
+  events:
+    '{"tldr":"string","recommendation":"top event title","picks":[{"title":"...","date":"e.g. Sat Jun 14","time":"e.g. 8pm","venue":"...","city":"...","category":"Concert|Festival|Comedy|...","price":"e.g. from $35","why_recommended":"1 sentence","tickets_url":"https://... MUST be a Sources URL","source_url":"https://... MUST be a Sources URL"}],"detail_markdown":"string"}\n\nIMPORTANT: 3-6 real upcoming events. tickets_url and source_url must come from the numbered Sources.',
   general:
     '{"tldr":"string","key_facts":["..."],"hero_image_url":"https://... a representative image URL drawn from the Sources (omit if none)","related_links":[{"label":"short label","url":"https://... must be one of the Sources URLs"}],"detail_markdown":"string (rich markdown with sections)"}',
 };

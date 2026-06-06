@@ -137,11 +137,23 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           query, intent, evidence, sources, apiKey, send,
         );
 
+        // Strip hallucinated image URLs / links that aren't in the sources list
+        let cleaned = sanitizeStructured(finalIntent, structured, sources);
+
+        // For insta intent, generate a hero image based on the scene/mood
+        if (finalIntent === "insta") {
+          send({ type: "stage", stage: "generate_image" });
+          const scene = (cleaned.scene as string) || query;
+          const mood = (cleaned.mood as string) || "";
+          const imgUrl = await generateInstaImage(scene, mood, apiKey);
+          if (imgUrl) cleaned = { ...cleaned, generated_image_url: imgUrl };
+        }
+
         send({
           type: "final",
           intent: finalIntent,
-          structured,
-          markdown: typeof structured?.detail_markdown === "string" ? structured.detail_markdown as string : "",
+          structured: cleaned,
+          markdown: typeof cleaned?.detail_markdown === "string" ? cleaned.detail_markdown as string : "",
           sources,
         });
       } catch (e) {

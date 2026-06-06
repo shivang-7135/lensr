@@ -20,10 +20,10 @@ export function ResearchPanel({ events, done }: { events: StreamEvent[]; done: b
   const loops = events.filter((e) => e.type === "reflection").length;
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card/40 overflow-hidden">
+    <div className="glass overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-accent/5 transition"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5 transition"
       >
         <div className="flex items-center gap-2 min-w-0">
           {done ? (
@@ -43,7 +43,7 @@ export function ResearchPanel({ events, done }: { events: StreamEvent[]; done: b
         <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="px-4 pb-4 pt-1 border-t border-border/60">
+        <div className="px-4 pb-4 pt-1 border-t border-white/10">
           <AgentTimeline events={events} done={done} />
         </div>
       )}

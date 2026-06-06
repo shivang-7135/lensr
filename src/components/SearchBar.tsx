@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
+import { Search } from "lucide-react";
 
 const INTENT_CHIPS = [
   { label: "Buy a phone", q: "best phone under $700 for photography" },
@@ -21,16 +22,17 @@ export function SearchBar({ initial = "" }: { initial?: string }) {
   return (
     <div className="w-full">
       <form onSubmit={submit} className="relative">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Ask anything — shopping, trips, prices, captions…"
-          className="w-full bg-card border-2 border-foreground/90 rounded-xl px-6 py-5 text-lg outline-none focus:border-accent shadow-[6px_6px_0_0_var(--color-foreground)] transition-shadow focus:shadow-[8px_8px_0_0_var(--color-accent)]"
+          className="glass-input w-full rounded-2xl pl-14 pr-32 py-5 text-lg text-foreground placeholder:text-muted-foreground"
         />
         <button
           type="submit"
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-foreground text-background px-5 py-2.5 rounded-lg font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+          className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 rounded-xl glass-strong text-foreground font-medium hover:border-accent/60 hover:text-accent transition"
         >
           Search →
         </button>
@@ -44,7 +46,7 @@ export function SearchBar({ initial = "" }: { initial?: string }) {
               if (c.q.startsWith("/")) navigate({ to: c.q });
               else { setQ(c.q); navigate({ to: "/results", search: { q: c.q } }); }
             }}
-            className="text-xs px-3 py-1.5 rounded-full border border-border bg-card hover:bg-secondary hover:border-foreground/40 transition-colors"
+            className="text-xs px-3 py-1.5 rounded-full glass-soft hover:border-accent/50 hover:text-accent transition-colors"
           >
             {c.label}
           </button>

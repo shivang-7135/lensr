@@ -29,28 +29,28 @@ export function SiteHeader() {
   }, []);
 
   return (
-    <header className="border-b border-border/60 bg-background/80 backdrop-blur sticky top-0 z-40">
+    <header className="sticky top-0 z-40 glass-soft">
       <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <span className="h-8 w-8 rounded-md bg-foreground text-background flex items-center justify-center font-display text-xl font-bold">L</span>
+          <span className="h-8 w-8 rounded-xl glass flex items-center justify-center font-display text-lg font-bold text-accent">L</span>
           <span className="font-display text-xl tracking-tight">Lensr</span>
           <span className="text-xs text-muted-foreground hidden sm:inline">— search that thinks</span>
         </Link>
-        <nav className="flex items-center gap-1 sm:gap-3 text-sm">
-          <Link to="/insta" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Insta</Link>
-          <Link to="/_authenticated/saved" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors">Saved</Link>
+        <nav className="flex items-center gap-1 sm:gap-2 text-sm">
+          <Link to="/insta" className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors">Insta</Link>
+          <Link to="/_authenticated/saved" className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors">Saved</Link>
           {isAdmin && (
-            <Link to="/_authenticated/admin" className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors text-accent">Admin</Link>
+            <Link to="/_authenticated/admin" className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors text-accent">Admin</Link>
           )}
           {email ? (
             <button
               onClick={() => supabase.auth.signOut()}
-              className="px-3 py-1.5 rounded-md hover:bg-secondary transition-colors text-muted-foreground"
+              className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors text-muted-foreground"
             >
               Sign out
             </button>
           ) : (
-            <Link to="/auth" className="px-3 py-1.5 rounded-md bg-foreground text-background hover:opacity-90 transition">Sign in</Link>
+            <Link to="/auth" className="px-4 py-1.5 rounded-full glass-strong text-foreground hover:border-accent/50 transition">Sign in</Link>
           )}
         </nav>
       </div>

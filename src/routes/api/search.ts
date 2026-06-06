@@ -150,14 +150,77 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             apiKey,
           );
           if (imgUrl) cleaned = { ...cleaned, generated_image_url: imgUrl };
-        } else if (finalIntent === "trip" && !cleaned.hero_image_url) {
-          send({ type: "stage", stage: "generate_image" });
+          if (Array.isArray(cleaned.place_suggestions)) {
+            const places = cleaned.place_suggestions as Record<string, unknown>[];
+            const enrichedPlaces = await Promise.all(places.map(async (p) => {
+              const name = (p.name as string) ?? "";
+              const next: Record<string, unknown> = { ...p };
+              if (!p.url && name) next.url = googleMapsSearch(name);
+              if (!p.image_url && name) {
+                const img = await fetchWikiImage(name);
+                if (img) next.image_url = img;
+              }
+              return next;
+            }));
+            cleaned = { ...cleaned, place_suggestions: enrichedPlaces };
+          }
+        } else if (finalIntent === "trip") {
+          send({ type: "stage", stage: "fetch_trip_media" });
           const dest = (cleaned.destination as string) || query;
-          const imgUrl = await generateAIImage(
-            `Travel hero photograph of ${dest}. Iconic landmark, golden hour, wide cinematic composition, vibrant colors, no text or watermark.`,
-            apiKey,
-          );
-          if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
+          if (!cleaned.hero_image_url) {
+            const real = await pickImage([dest, `${dest} skyline`, `${dest} city`], []);
+            if (real) {
+              cleaned = { ...cleaned, hero_image_url: real };
+            } else {
+              const ai = await generateAIImage(
+                `Travel hero photograph of ${dest}. Iconic landmark, golden hour, wide cinematic composition, vibrant colors, no text or watermark.`,
+                apiKey,
+              );
+              if (ai) cleaned = { ...cleaned, hero_image_url: ai };
+            }
+          }
+          if (Array.isArray(cleaned.days)) {
+            const days = cleaned.days as Record<string, unknown>[];
+            const enrichedDays = await Promise.all(days.map(async (d) => {
+              if (d.image_url) return d;
+              const theme = (d.theme as string) ?? "";
+              const img = theme ? await fetchWikiImage(`${theme} ${dest}`) : null;
+              return img ? { ...d, image_url: img } : d;
+            }));
+            cleaned = { ...cleaned, days: enrichedDays };
+          }
+          const tripLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
+          const tripHave = new Set(tripLinks.map((l) => l.label.toLowerCase()));
+          const tripCtas: Array<{ label: string; url: string }> = [...tripLinks];
+          if (!tripHave.has("google maps")) tripCtas.push({ label: "Google Maps", url: googleMapsSearch(dest) });
+          if (!tripHave.has("booking.com")) tripCtas.push({ label: "Booking.com", url: bookingSearch(dest) });
+          if (!tripHave.has("flights")) tripCtas.push({ label: "Flights", url: `https://www.google.com/travel/flights?q=${encodeURIComponent(`flights to ${dest}`)}` });
+          cleaned = { ...cleaned, related_links: tripCtas.slice(0, 6) };
+        } else if (finalIntent === "shopping" && Array.isArray(cleaned.picks)) {
+          send({ type: "stage", stage: "fetch_product_media" });
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enrichedPicks = await Promise.all(picks.map(async (p) => {
+            const name = (p.name as string) ?? "";
+            const next: Record<string, unknown> = { ...p };
+            const existingLinks = Array.isArray(p.buy_links) ? (p.buy_links as Array<{ label: string; url: string }>) : [];
+            const fallbackUrls = [
+              ...existingLinks.map((b) => b.url),
+              ...(typeof p.url === "string" ? [p.url] : []),
+            ];
+            if (!p.image_url && name) {
+              const img = await pickImage([`${name} product`, name], fallbackUrls);
+              if (img) next.image_url = img;
+            }
+            const have = new Set(existingLinks.map((b) => b.label.toLowerCase()));
+            const links = [...existingLinks];
+            if (typeof p.url === "string" && !existingLinks.some((b) => b.url === p.url)) {
+              links.unshift({ label: "View", url: p.url });
+            }
+            if (!have.has("amazon") && name) links.push({ label: "Amazon", url: amazonSearch(name) });
+            if (links.length) next.buy_links = links.slice(0, 4);
+            return next;
+          }));
+          cleaned = { ...cleaned, picks: enrichedPicks };
         } else if (finalIntent === "movies" && Array.isArray(cleaned.picks)) {
           send({ type: "stage", stage: "fetch_posters" });
           const picks = cleaned.picks as Record<string, unknown>[];

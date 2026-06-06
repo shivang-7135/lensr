@@ -101,11 +101,50 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
       <body>
+        {/* Apple-style liquid glass aurora stage — sits behind every route */}
+        <div className="aurora-stage" aria-hidden>
+          <div
+            className="aurora-blob"
+            style={{
+              top: "-15%",
+              left: "-10%",
+              width: "60vw",
+              height: "60vw",
+              background:
+                "radial-gradient(circle, oklch(0.6 0.22 270 / 80%), transparent 70%)",
+            }}
+          />
+          <div
+            className="aurora-blob"
+            style={{
+              bottom: "-20%",
+              right: "-10%",
+              width: "55vw",
+              height: "55vw",
+              background:
+                "radial-gradient(circle, oklch(0.65 0.18 200 / 70%), transparent 70%)",
+              animationDelay: "-12s",
+            }}
+          />
+          <div
+            className="aurora-blob"
+            style={{
+              top: "30%",
+              left: "40%",
+              width: "40vw",
+              height: "40vw",
+              background:
+                "radial-gradient(circle, oklch(0.65 0.2 320 / 50%), transparent 70%)",
+              animationDelay: "-22s",
+            }}
+          />
+        </div>
+        <div className="aurora-noise" aria-hidden />
         {children}
         <Scripts />
       </body>

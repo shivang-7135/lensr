@@ -7,16 +7,16 @@ export function DetailDisclosure({ markdown, label = "Show full analysis" }: { m
   const [open, setOpen] = useState(false);
   if (!markdown) return null;
   return (
-    <div className="border-t border-border/60 pt-4">
+    <div className="pt-2">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition"
+        className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full glass-soft hover:border-accent/50 hover:text-accent transition"
       >
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
         {open ? "Hide full analysis" : label}
       </button>
       {open && (
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display mt-4 prose-sm">
+        <article className="prose prose-invert max-w-none prose-headings:font-display prose-a:text-accent mt-4 prose-sm glass p-5">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </article>
       )}

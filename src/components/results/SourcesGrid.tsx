@@ -18,7 +18,7 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
                 href={s.url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-start gap-3 p-3 rounded-lg border border-border/60 hover:border-accent hover:bg-accent/5 transition group"
+                className="flex items-start gap-3 p-3 glass glass-hover group"
               >
                 <img
                   src={`https://www.google.com/s2/favicons?sz=32&domain=${d}`}
@@ -27,7 +27,7 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
                   loading="lazy"
                 />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-accent">{s.title}</div>
+                  <div className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-accent transition-colors">{s.title}</div>
                   <div className="text-xs text-muted-foreground truncate">{d}</div>
                 </div>
               </a>

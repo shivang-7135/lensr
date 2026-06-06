@@ -19,22 +19,27 @@ function Home() {
     <div className="min-h-screen flex flex-col">
       <SiteHeader />
       <main className="flex-1 relative">
-        <div className="absolute inset-0 grid-overlay opacity-40 pointer-events-none" />
         <div className="relative mx-auto max-w-3xl px-6 pt-24 pb-32">
-          <p className="text-sm uppercase tracking-widest text-muted-foreground mb-4">An intent-aware search engine</p>
-          <h1 className="display text-5xl sm:text-7xl font-bold leading-[0.95] mb-6">
+          <p className="text-sm uppercase tracking-[0.25em] text-accent/80 mb-4 fade-up">An intent-aware search engine</p>
+          <h1 className="display text-5xl sm:text-7xl font-bold leading-[0.95] mb-6 fade-up" style={{ animationDelay: "60ms" }}>
             Don't search. <br />
-            <span className="text-accent">Ask.</span>
+            <span className="bg-gradient-to-r from-accent via-[oklch(0.78_0.18_290)] to-[oklch(0.82_0.18_165)] bg-clip-text text-transparent">Ask.</span>
           </h1>
-          <p className="text-lg text-muted-foreground mb-10 max-w-xl">
+          <p className="text-lg text-muted-foreground mb-10 max-w-xl fade-up" style={{ animationDelay: "120ms" }}>
             Lensr routes your query to a specialized agent — shopping, trip planning, price history, or caption help —
             and returns one opinionated answer instead of ten blue links.
           </p>
-          <SearchBar />
+          <div className="fade-up" style={{ animationDelay: "180ms" }}>
+            <SearchBar />
+          </div>
 
           <div className="mt-20 grid sm:grid-cols-2 gap-4">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="border-2 border-foreground/90 rounded-xl p-5 bg-card shadow-[4px_4px_0_0_var(--color-foreground)]">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="glass glass-hover p-5 fade-up"
+                style={{ animationDelay: `${240 + i * 60}ms` }}
+              >
                 <div className="text-2xl mb-2">{f.emoji}</div>
                 <h3 className="font-display text-lg mb-1">{f.title}</h3>
                 <p className="text-sm text-muted-foreground">{f.body}</p>
@@ -43,7 +48,7 @@ function Home() {
           </div>
         </div>
       </main>
-      <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
+      <footer className="py-6 text-center text-xs text-muted-foreground">
         Built with TanStack Start · LangGraph · AWS Bedrock
       </footer>
     </div>

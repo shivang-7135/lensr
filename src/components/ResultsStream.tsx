@@ -7,8 +7,6 @@ import { ShoppingResult } from "@/components/results/ShoppingResult";
 import { TripResult } from "@/components/results/TripResult";
 import { PriceHistoryResult } from "@/components/results/PriceHistoryResult";
 import { InstaResult } from "@/components/results/InstaResult";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
 const INTENT_LABEL: Record<SearchIntent, string> = {
   shopping: "Shopping",
@@ -18,21 +16,52 @@ const INTENT_LABEL: Record<SearchIntent, string> = {
   general: "General",
 };
 
-function renderStructured(intent: SearchIntent, data: Record<string, unknown> | null, fallbackMarkdown: string) {
-  if (!data) {
-    return (
-      <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{fallbackMarkdown}</ReactMarkdown>
-      </article>
-    );
+type Sources = { title: string; url: string }[];
+
+function hasArr(d: Record<string, unknown> | null, key: string): boolean {
+  return !!d && Array.isArray(d[key]) && (d[key] as unknown[]).length > 0;
+}
+
+function isUsable(intent: SearchIntent, d: Record<string, unknown> | null): boolean {
+  if (!d) return false;
+  switch (intent) {
+    case "shopping": return hasArr(d, "picks");
+    case "trip": return hasArr(d, "days");
+    case "insta": return hasArr(d, "captions");
+    case "price_history": return d.typical_price_range != null || d.buy_now_score != null;
+    case "general": return !!(d.tldr || d.detail_markdown || hasArr(d, "key_facts"));
   }
+}
+
+function firstParagraph(s: string): string {
+  const p = s?.split(/\n\s*\n/)[0]?.trim() ?? "";
+  return p.length > 280 ? p.slice(0, 277) + "…" : p;
+}
+
+function renderStructured(
+  intent: SearchIntent,
+  data: Record<string, unknown> | null,
+  fallbackMarkdown: string,
+  sources: Sources,
+) {
+  // Degrade to General whenever the intent-specific card can't be filled
+  if (!isUsable(intent, data)) {
+    const general = {
+      intent: "general" as const,
+      tldr: (data?.tldr as string) || firstParagraph(fallbackMarkdown) || "Here's what I found.",
+      key_facts: (Array.isArray(data?.key_facts) ? (data!.key_facts as string[]) : []),
+      detail_markdown: fallbackMarkdown || (typeof data?.detail_markdown === "string" ? (data!.detail_markdown as string) : ""),
+    };
+    return <GeneralResult data={general} sources={sources} />;
+  }
+
   const withIntent = { intent, ...data } as unknown as StructuredResult;
   switch (intent) {
     case "shopping": return <ShoppingResult data={withIntent as Extract<StructuredResult, { intent: "shopping" }>} />;
     case "trip": return <TripResult data={withIntent as Extract<StructuredResult, { intent: "trip" }>} />;
     case "price_history": return <PriceHistoryResult data={withIntent as Extract<StructuredResult, { intent: "price_history" }>} />;
     case "insta": return <InstaResult data={withIntent as Extract<StructuredResult, { intent: "insta" }>} />;
-    default: return <GeneralResult data={withIntent as Extract<StructuredResult, { intent: "general" }>} />;
+    default: return <GeneralResult data={withIntent as Extract<StructuredResult, { intent: "general" }>} sources={sources} />;
   }
 }
 

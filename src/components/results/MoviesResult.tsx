@@ -1,4 +1,4 @@
-import { Star, Play, Tv2, Clock, Award } from "lucide-react";
+import { Star, Play, Tv2, Clock, Award, ExternalLink } from "lucide-react";
 import type { MoviesStructured } from "@/lib/search/types";
 import { DetailDisclosure } from "./DetailDisclosure";
 import { SafeImage } from "./SafeImage";

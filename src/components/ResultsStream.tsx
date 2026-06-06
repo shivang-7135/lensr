@@ -152,7 +152,7 @@ export function ResultsStream({ query }: { query: string }) {
 
       {final && intent ? (
         <>
-          {renderStructured(intent, final.structured, final.markdown)}
+          {renderStructured(intent, final.structured, final.markdown, final.sources)}
           <div className="pt-6">
             <SourcesGrid sources={final.sources} />
           </div>

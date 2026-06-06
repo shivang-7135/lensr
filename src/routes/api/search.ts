@@ -643,6 +643,32 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
       return np;
     });
   }
+  if (intent === "recipes" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("source_url" in np && !okLink(np.source_url)) delete np.source_url;
+      return np;
+    });
+  }
+  if (intent === "places" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("website_url" in np && !okLink(np.website_url)) delete np.website_url;
+      return np;
+    });
+  }
+  if (intent === "events" && Array.isArray(o.picks)) {
+    o.picks = (o.picks as Record<string, unknown>[]).map((p) => {
+      const np = { ...p };
+      if ("image_url" in np && !okImage(np.image_url)) delete np.image_url;
+      if ("tickets_url" in np && !okLink(np.tickets_url)) delete np.tickets_url;
+      if ("source_url" in np && !okLink(np.source_url)) delete np.source_url;
+      return np;
+    });
+  }
+  // books has no URL fields to sanitize (we synthesize them in enrichment)
   return o;
 }
 

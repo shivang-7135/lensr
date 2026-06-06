@@ -1,6 +1,6 @@
-import ReactMarkdown from "react-markdown";
 import { Check, X, ExternalLink, Award } from "lucide-react";
 import type { ShoppingStructured } from "@/lib/search/types";
+import { DetailDisclosure } from "./DetailDisclosure";
 
 export function ShoppingResult({ data }: { data: ShoppingStructured }) {
   return (
@@ -76,11 +76,8 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
         </div>
       )}
 
-      {data.detail_markdown && (
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-          <ReactMarkdown>{data.detail_markdown}</ReactMarkdown>
-        </article>
-      )}
+      <DetailDisclosure markdown={data.detail_markdown} />
+
     </div>
   );
 }

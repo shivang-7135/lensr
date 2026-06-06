@@ -1,7 +1,7 @@
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { Copy, Check, MapPin } from "lucide-react";
 import type { InstaStructured } from "@/lib/search/types";
+import { DetailDisclosure } from "./DetailDisclosure";
 
 function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
@@ -74,11 +74,8 @@ export function InstaResult({ data }: { data: InstaStructured }) {
         </div>
       )}
 
-      {data.detail_markdown && (
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-          <ReactMarkdown>{data.detail_markdown}</ReactMarkdown>
-        </article>
-      )}
+      <DetailDisclosure markdown={data.detail_markdown} />
+
     </div>
   );
 }

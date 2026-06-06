@@ -1,6 +1,6 @@
-import ReactMarkdown from "react-markdown";
 import { TrendingDown, TrendingUp, Minus, HelpCircle } from "lucide-react";
 import type { PriceHistoryStructured } from "@/lib/search/types";
+import { DetailDisclosure } from "./DetailDisclosure";
 
 const TREND_ICON = { rising: TrendingUp, falling: TrendingDown, stable: Minus, unknown: HelpCircle } as const;
 
@@ -56,11 +56,8 @@ export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
         </div>
       )}
 
-      {data.detail_markdown && (
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-display">
-          <ReactMarkdown>{data.detail_markdown}</ReactMarkdown>
-        </article>
-      )}
+      <DetailDisclosure markdown={data.detail_markdown} />
+
     </div>
   );
 }

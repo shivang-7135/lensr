@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import type { GeneralStructured } from "@/lib/search/types";
+import { DetailDisclosure } from "./DetailDisclosure";
 
 export function GeneralResult({ data }: { data: GeneralStructured }) {
   return (

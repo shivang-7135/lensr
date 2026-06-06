@@ -643,21 +643,31 @@ function buildWatchUrl(title: string, where: string): string {
 }
 
 async function fetchRealPoster(title: string, year: string): Promise<string | null> {
-  const term = encodeURIComponent(year ? `${title} ${year}` : title);
-  // iTunes Search API — no key, returns official artwork. Try movie then tvSeason.
-  for (const entity of ["movie", "tvSeason"]) {
+  // Wikipedia REST API — returns real movie/TV posters from Wikipedia infoboxes.
+  const queries = [
+    year ? `${title} ${year} film` : `${title} film`,
+    year ? `${title} ${year} TV series` : `${title} TV series`,
+    title,
+  ];
+  for (const q of queries) {
     try {
-      const r = await fetch(
-        `https://itunes.apple.com/search?term=${term}&media=${entity === "movie" ? "movie" : "tvShow"}&entity=${entity}&limit=1`,
-        { headers: { "User-Agent": "Lensr/1.0" } },
-      );
-      if (!r.ok) continue;
-      const j = (await r.json()) as { results?: Array<{ artworkUrl100?: string }> };
-      const art = j.results?.[0]?.artworkUrl100;
-      if (art) {
-        // Upscale 100x100 → 600x900 (2:3 portrait)
-        return art.replace(/\/\d+x\d+(bb)?\.(jpg|png)/i, "/600x600bb.jpg");
-      }
+      // 1) Search to resolve the canonical page title
+      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=1&origin=*&srsearch=${encodeURIComponent(q)}`;
+      const sr = await fetch(searchUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+      if (!sr.ok) continue;
+      const sj = (await sr.json()) as { query?: { search?: Array<{ title?: string }> } };
+      const pageTitle = sj.query?.search?.[0]?.title;
+      if (!pageTitle) continue;
+      // 2) Fetch the page summary for the lead image
+      const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, "_"))}`;
+      const pr = await fetch(summaryUrl, { headers: { "User-Agent": "Lensr/1.0 (lovable.dev)" } });
+      if (!pr.ok) continue;
+      const pj = (await pr.json()) as {
+        originalimage?: { source?: string };
+        thumbnail?: { source?: string };
+      };
+      const img = pj.originalimage?.source || pj.thumbnail?.source;
+      if (img && /^https?:\/\//.test(img)) return img;
     } catch { /* try next */ }
   }
   return null;

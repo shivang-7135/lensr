@@ -88,7 +88,10 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
       try {
-        const intent = classifyIntent(query);
+        // Step 0: LLM-based intent classification (with regex hint)
+        send({ type: "stage", stage: "classify_intent" });
+        const hint = regexIntentHint(query);
+        let intent = await classifyIntentLLM(query, hint, apiKey);
         send({ type: "intent_detected", intent });
 
         // Step 1: extract keywords
@@ -115,15 +118,30 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           followup_queries: [],
         });
 
-        // Step 5: synthesize structured JSON
+        // If no sources came back, degrade to general with raw evidence
+        if (sources.length === 0 && evidence.trim().length === 0) {
+          send({ type: "stage", stage: "search_loop_1_empty" });
+          send({
+            type: "final",
+            intent: "general",
+            structured: { tldr: "I couldn't find reliable sources for this query. Try rephrasing or being more specific.", key_facts: [], detail_markdown: "" },
+            markdown: "",
+            sources: [],
+          });
+          return;
+        }
+
+        // Step 5: synthesize structured JSON (with repair + validation, degrades to general)
         send({ type: "stage", stage: "synthesize" });
-        const structured = await synthesizeStructured(query, intent, evidence, sources, apiKey, send);
+        const { intent: finalIntent, structured } = await synthesizeStructured(
+          query, intent, evidence, sources, apiKey, send,
+        );
 
         send({
           type: "final",
-          intent,
+          intent: finalIntent,
           structured,
-          markdown: typeof structured?.detail_markdown === "string" ? structured.detail_markdown : "",
+          markdown: typeof structured?.detail_markdown === "string" ? structured.detail_markdown as string : "",
           sources,
         });
       } catch (e) {
@@ -180,7 +198,6 @@ async function researchWithGrounding(
   intent: Intent,
   apiKey: string,
 ): Promise<{ evidence: string; sources: Source[] }> {
-  // Use Gemini 2.5 Flash with google_search grounding tool.
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -190,9 +207,11 @@ async function researchWithGrounding(
         {
           role: "system",
           content:
-            `You are a research assistant. Use web search to gather current, accurate evidence for a ${intent} query. ` +
-            "Run multiple searches if useful. Then output ONLY a concise evidence brief (300-700 words) summarizing what you found, " +
-            "including specific facts, names, prices, dates, and URLs in [n] form. Do not write the final user-facing answer yet.",
+            `You are a research assistant gathering current, accurate evidence for a ${intent} query. ` +
+            "Use web search aggressively across the suggested angles. " +
+            "Output a 350-600 word evidence brief with concrete facts, names, prices, and dates. " +
+            "Use inline [n] citations referencing a numbered list. " +
+            "End with a section exactly titled 'Sources:' followed by a numbered list of the URLs you actually used, in [n] order.",
         },
         {
           role: "user",
@@ -210,8 +229,16 @@ async function researchWithGrounding(
   const json = await res.json();
   const evidence: string = json.choices?.[0]?.message?.content ?? "";
 
-  // Gemini grounding metadata: extract citations / sources if present
-  const gm = json.choices?.[0]?.message?.grounding_metadata ?? json.choices?.[0]?.grounding_metadata;
+  // Try every known shape for Gemini grounding metadata
+  const msg = json.choices?.[0]?.message ?? {};
+  const cand = json.choices?.[0] ?? {};
+  const gm =
+    msg.grounding_metadata ??
+    msg.metadata?.grounding_metadata ??
+    cand.grounding_metadata ??
+    msg.groundingMetadata ??
+    null;
+
   const sources: Source[] = [];
   const seen = new Set<string>();
   const chunks = gm?.grounding_chunks ?? gm?.groundingChunks ?? [];
@@ -224,15 +251,16 @@ async function researchWithGrounding(
       sources.push({ title: title || url, url });
     }
   }
-  // Fallback: parse URLs out of evidence text if no grounding metadata
+  // Fallback: parse URLs out of evidence text
   if (sources.length === 0) {
     const urlRe = /https?:\/\/[^\s)\]]+/g;
     const matches = evidence.match(urlRe) ?? [];
-    for (const url of matches.slice(0, 8)) {
-      if (!seen.has(url)) {
-        seen.add(url);
+    for (const url of matches.slice(0, 10)) {
+      const clean = url.replace(/[.,);\]]+$/, "");
+      if (!seen.has(clean)) {
+        seen.add(clean);
         try {
-          sources.push({ title: new URL(url).hostname.replace(/^www\./, ""), url });
+          sources.push({ title: new URL(clean).hostname.replace(/^www\./, ""), url: clean });
         } catch { /* ignore */ }
       }
     }
@@ -248,7 +276,7 @@ async function synthesizeStructured(
   sources: Source[],
   apiKey: string,
   send: (obj: unknown) => void,
-): Promise<Record<string, unknown>> {
+): Promise<{ intent: Intent; structured: Record<string, unknown> }> {
   const schema = SCHEMA_HINT[intent];
   const sysPrompt = SYS_PROMPT[intent];
   const sourceList = sources.map((s, i) => `[${i + 1}] ${s.title} — ${s.url}`).join("\n");
@@ -261,7 +289,7 @@ async function synthesizeStructured(
       model: "google/gemini-2.5-flash-lite",
       stream: true,
       messages: [
-        { role: "system", content: "Write a 2-3 sentence TL;DR for the user based on the evidence." },
+        { role: "system", content: "Write a 2-3 sentence TL;DR for the user based on the evidence. Plain prose, no preamble." },
         { role: "user", content: `Query: ${query}\n\nEvidence:\n${evidence.slice(0, 4000)}` },
       ],
     }),
@@ -293,20 +321,75 @@ async function synthesizeStructured(
     })
     .catch(() => { /* non-fatal */ });
 
-  const structured = await callJSON(apiKey, "google/gemini-2.5-flash", [
+  const userMsg = `Query: ${query}\n\nNumbered sources (cite these as [n]):\n${sourceList || "(none)"}\n\nEvidence:\n${evidence}`;
+
+  // First attempt
+  let structured = (await callJSON(apiKey, "google/gemini-3-flash-preview", [
     {
       role: "system",
       content:
         `${sysPrompt}\n\nReturn ONLY valid JSON matching this schema (no markdown, no commentary):\n${schema}\n\n` +
-        "Be concrete and specific. Cite sources inline in detail_markdown using [n] referencing the numbered sources. " +
-        "If evidence is insufficient, still produce best-effort fields and note uncertainty in the tldr.",
+        "Be concrete and specific. Cite the numbered sources inline in detail_markdown using [n]. " +
+        "Every required field must be populated using the evidence. Do not invent sources.",
     },
-    {
-      role: "user",
-      content: `Query: ${query}\n\nNumbered sources:\n${sourceList || "(none)"}\n\nEvidence:\n${evidence}`,
-    },
-  ]);
-  return (structured as Record<string, unknown>) ?? { tldr: "No structured answer available.", detail_markdown: evidence };
+    { role: "user", content: userMsg },
+  ])) as Record<string, unknown> | null;
+
+  // Repair pass if invalid/empty
+  if (!structured || !validateIntent(intent, structured)) {
+    const repaired = (await callJSON(apiKey, "google/gemini-2.5-flash-lite", [
+      {
+        role: "system",
+        content:
+          "Repair the assistant's previous output to valid JSON matching this schema exactly. " +
+          "Fill any missing required fields using the evidence. Reply with JSON only, no markdown.\n\n" +
+          `Schema:\n${schema}`,
+      },
+      {
+        role: "user",
+        content:
+          `Previous output:\n${JSON.stringify(structured ?? {})}\n\n` +
+          `Original evidence:\n${evidence.slice(0, 6000)}\n\n` +
+          `Numbered sources:\n${sourceList || "(none)"}`,
+      },
+    ])) as Record<string, unknown> | null;
+    if (repaired && validateIntent(intent, repaired)) {
+      structured = repaired;
+    }
+  }
+
+  // Still invalid → degrade to general using the evidence
+  if (!structured || !validateIntent(intent, structured)) {
+    const generalSchema = SCHEMA_HINT.general;
+    const general = (await callJSON(apiKey, "google/gemini-2.5-flash-lite", [
+      {
+        role: "system",
+        content:
+          `${SYS_PROMPT.general}\n\nReturn ONLY valid JSON matching:\n${generalSchema}\n\n` +
+          "key_facts: 4-8 short bullets of the most useful concrete facts (with [n] citations). " +
+          "detail_markdown: a clean, well-structured answer with [n] citations to the numbered sources. Use GFM tables/lists where helpful.",
+      },
+      { role: "user", content: userMsg },
+    ])) as Record<string, unknown> | null;
+
+    return {
+      intent: "general",
+      structured: general && validateIntent("general", general)
+        ? general
+        : {
+            tldr: firstParagraph(evidence) || "Here's what I found.",
+            key_facts: [],
+            detail_markdown: evidence,
+          },
+    };
+  }
+
+  return { intent, structured };
+}
+
+function firstParagraph(s: string): string {
+  const p = s.split(/\n\s*\n/)[0]?.trim() ?? "";
+  return p.length > 320 ? p.slice(0, 317) + "…" : p;
 }
 
 /* ---------------- LLM helpers ---------------- */
@@ -324,20 +407,61 @@ async function callJSON(apiKey: string, model: string, messages: Array<{ role: s
   const json = await res.json();
   const content: string = json.choices?.[0]?.message?.content ?? "{}";
   try { return JSON.parse(content); } catch {
-    // Try to recover JSON from a fenced block
     const m = content.match(/\{[\s\S]*\}/);
     if (m) { try { return JSON.parse(m[0]); } catch { /* ignore */ } }
     return null;
   }
 }
 
-function classifyIntent(q: string): Intent {
+function regexIntentHint(q: string): Intent {
   const s = q.toLowerCase();
   if (/price\s+(history|of)|when.*(cheap|drop|sale)|sale dates?/.test(s)) return "price_history";
   if (/trip|travel|vacation|itinerary|days? in |visit /.test(s)) return "trip";
   if (/caption|hashtag|instagram|insta/.test(s)) return "insta";
-  if (/best|buy|vs\b|review|under \$|cheapest|recommend/.test(s)) return "shopping";
+  if (/\bvs\b|compare|cheapest|under \$|under €/.test(s)) return "shopping";
   return "general";
+}
+
+async function classifyIntentLLM(query: string, hint: Intent, apiKey: string): Promise<Intent> {
+  try {
+    const res = (await callJSON(apiKey, "google/gemini-2.5-flash-lite", [
+      {
+        role: "system",
+        content:
+          "Classify the user's search query into ONE intent. Return ONLY JSON: " +
+          '{"intent":"shopping|price_history|trip|insta|general","confidence":0..1,"reason":"short"}.\n\n' +
+          "Definitions:\n" +
+          "- shopping: comparing/choosing between concrete products to BUY NOW with picks, pros/cons, alternatives. Needs a real comparable set.\n" +
+          "- price_history: asking about price trends, sale windows, or whether to buy now vs wait.\n" +
+          "- trip: travel planning, itineraries, destinations, what to do somewhere.\n" +
+          "- insta: instagram captions, hashtags, aesthetic content suggestions.\n" +
+          "- general: research, how-to, explanations, single-product deep dives, anything that doesn't cleanly fit above.\n\n" +
+          "Bias toward 'general' unless the query clearly fits another intent.",
+      },
+      { role: "user", content: `Query: ${query}\nRegex hint: ${hint}` },
+    ])) as { intent?: string; confidence?: number } | null;
+
+    const allowed: Intent[] = ["shopping", "price_history", "trip", "insta", "general"];
+    const picked = allowed.includes(res?.intent as Intent) ? (res!.intent as Intent) : hint;
+    const conf = typeof res?.confidence === "number" ? res.confidence : 0;
+    return conf < 0.6 ? "general" : picked;
+  } catch {
+    return hint;
+  }
+}
+
+function validateIntent(intent: Intent, obj: Record<string, unknown>): boolean {
+  if (!obj || typeof obj !== "object") return false;
+  const has = (k: string) => k in obj && obj[k] !== null && obj[k] !== undefined && obj[k] !== "";
+  const arr = (k: string) => Array.isArray(obj[k]) && (obj[k] as unknown[]).length > 0;
+  if (!has("tldr")) return false;
+  switch (intent) {
+    case "shopping": return arr("picks");
+    case "price_history": return has("typical_price_range") || has("buy_now_score");
+    case "trip": return arr("days");
+    case "insta": return arr("captions");
+    case "general": return true;
+  }
 }
 
 function isValidHttpUrl(value: string | undefined | null): boolean {
@@ -349,7 +473,7 @@ function isValidHttpUrl(value: string | undefined | null): boolean {
 
 const SYS_PROMPT: Record<Intent, string> = {
   shopping:
-    "You are a meticulous shopping advisor. Compare 2-4 picks honestly with pros/cons and price hints based ONLY on the evidence. Cite sources with [n].",
+    "You are a meticulous shopping advisor. Compare 2-4 picks honestly with pros/cons and price hints based ONLY on the evidence. Cite sources with [n]. If the evidence doesn't contain a real comparable set of products, return general intent instead.",
   price_history:
     "You are a price-history analyst. Estimate typical price range, trend, best sale windows, and a buy-now score (0-10) based on the evidence.",
   trip:
@@ -357,7 +481,7 @@ const SYS_PROMPT: Record<Intent, string> = {
   insta:
     "You are an Instagram caption writer. Produce 3-5 caption styles, 12-20 hashtags, and place suggestions based on the evidence.",
   general:
-    "Answer directly using the evidence. Be specific, accurate, well-structured. Include key facts and a rich markdown detail section.",
+    "Answer directly using the evidence. Be specific, accurate, well-structured. Include key facts and a rich markdown detail section with [n] citations.",
 };
 
 const SCHEMA_HINT: Record<Intent, string> = {

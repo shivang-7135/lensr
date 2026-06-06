@@ -63,7 +63,19 @@ export function MoviesResult({ data }: { data: MoviesStructured }) {
                 <div className="p-4 space-y-2 flex-1 flex flex-col">
                   <div>
                     <h3 className="font-display font-semibold leading-tight">
-                      {m.title}
+                      {m.watch_url ? (
+                        <a
+                          href={m.watch_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-accent transition-colors inline-flex items-center gap-1"
+                        >
+                          {m.title}
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </a>
+                      ) : (
+                        m.title
+                      )}
                       {m.year && <span className="text-muted-foreground font-normal text-sm ml-1">({m.year})</span>}
                     </h3>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
@@ -84,7 +96,18 @@ export function MoviesResult({ data }: { data: MoviesStructured }) {
                     <p className="text-sm leading-relaxed">{m.why_recommended}</p>
                   )}
                   {m.synopsis && (
-                    <p className="text-xs text-muted-foreground line-clamp-3 mt-auto">{m.synopsis}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-3">{m.synopsis}</p>
+                  )}
+                  {m.watch_url && (
+                    <a
+                      href={m.watch_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-auto inline-flex items-center justify-center gap-2 text-sm font-semibold py-2 px-3 rounded-full glass-strong glass-hover hover:bg-accent hover:text-accent-foreground transition"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      Watch{m.where_to_watch ? ` on ${m.where_to_watch}` : " now"}
+                    </a>
                   )}
                 </div>
               </article>

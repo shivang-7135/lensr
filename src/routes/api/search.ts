@@ -985,9 +985,9 @@ function generalMediaQueries(query: string, keywords: Keywords): string[] {
   const s = query.toLowerCase();
   const topicHints = [
     { re: /\b(fitness|workout|exercise|gym|strength|cardio|running|yoga)\b/, terms: ["Physical fitness", "Exercise", "Strength training"] },
-    { re: /\b(coding|code|programming|developer|software|javascript|python|typescript)\b/, terms: ["Computer programming", "Software development", "Source code"] },
-    { re: /\b(health|wellness|medical|nutrition|sleep|mental health|medicine)\b/, terms: ["Health", "Wellness", "Medicine"] },
-    { re: /\b(productivity|focus|time management|habits|workflow|deep work)\b/, terms: ["Productivity", "Time management", "Workflow"] },
+    { re: /\b(coding|code|programming|developer|software|javascript|python|typescript)\b/, terms: ["Programming language", "Programmer", "Computer keyboard"] },
+    { re: /\b(health|wellness|medical|nutrition|sleep|mental health|medicine)\b/, terms: ["Public health", "Healthy diet", "Medicine"] },
+    { re: /\b(productivity|focus|time management|habits|workflow|deep work)\b/, terms: ["Workforce productivity", "Time management", "Pomodoro Technique"] },
     { re: /\b(finance|invest|money|budget|saving|stock|tax)\b/, terms: ["Finance", "Investment", "Personal finance"] },
     { re: /\b(career|job|resume|interview|promotion|salary)\b/, terms: ["Career", "Job interview", "Résumé"] },
     { re: /\b(home|house|decor|garden|cleaning|repair)\b/, terms: ["Home", "Interior design", "Garden"] },

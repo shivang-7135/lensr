@@ -304,6 +304,27 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             return next;
           }));
           cleaned = { ...cleaned, picks: enriched };
+        } else if (finalIntent === "general") {
+          send({ type: "stage", stage: "fetch_general_media" });
+          const isNewsy = /\b(news|today|this week|latest|update|breaking)\b/i.test(query);
+          const topUrls = sources.slice(0, 3).map((s) => s.url);
+          if (!cleaned.hero_image_url) {
+            const entities = (keywords.entities ?? []).slice(0, 2);
+            const wikiQueries = [query, ...entities].filter(Boolean) as string[];
+            const img = isNewsy
+              ? (await pickImage([], topUrls)) || (await pickImage(wikiQueries, []))
+              : (await pickImage(wikiQueries, topUrls));
+            if (img) cleaned = { ...cleaned, hero_image_url: img };
+          }
+          const existingLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
+          if (existingLinks.length < 3 && sources.length) {
+            const have = new Set(existingLinks.map((l) => l.url));
+            const extras = sources
+              .filter((s) => !have.has(s.url))
+              .slice(0, 3 - existingLinks.length)
+              .map((s) => ({ label: hostnameLabel(s.url), url: s.url }));
+            cleaned = { ...cleaned, related_links: [...existingLinks, ...extras] };
+          }
         }
 
         send({

@@ -70,8 +70,8 @@ export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
                   formatter={(v: number) => [`${currency}${v}`, "Price"]}
                 />
                 <Line type="monotone" dataKey="price" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                {lowest && (
-                  <ReferenceDot x={lowest.when ?? (lowest as { date?: string }).date} y={lowest.price} r={6} fill="hsl(var(--signal))" stroke="hsl(var(--background))" />
+                {lowest?.when && (
+                  <ReferenceDot x={lowest.when} y={lowest.price} r={6} fill="hsl(var(--signal))" stroke="hsl(var(--background))" />
                 )}
               </LineChart>
             </ResponsiveContainer>

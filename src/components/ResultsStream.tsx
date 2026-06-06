@@ -130,12 +130,12 @@ export function ResultsStream({ query }: { query: string }) {
   }, [query]);
 
   return (
-    <div className="mx-auto max-w-3xl w-full space-y-6">
+    <div className="mx-auto max-w-3xl w-full space-y-6 fade-up">
       <ResearchPanel events={events} done={done} />
 
       <div className="flex items-center gap-3">
         {intent && (
-          <span className="text-xs uppercase tracking-widest px-2 py-1 rounded-full bg-accent/15 text-accent font-medium">
+          <span className="text-xs uppercase tracking-widest px-3 py-1 rounded-full glass-soft text-accent font-medium">
             {INTENT_LABEL[intent]}
           </span>
         )}
@@ -145,7 +145,7 @@ export function ResultsStream({ query }: { query: string }) {
       </div>
 
       {error && (
-        <div className="p-4 border border-destructive/40 bg-destructive/10 rounded-lg text-sm text-destructive">
+        <div className="p-4 glass border border-destructive/50 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -158,7 +158,7 @@ export function ResultsStream({ query }: { query: string }) {
           </div>
         </>
       ) : partial ? (
-        <div className="p-5 rounded-xl bg-accent/5 border border-accent/20">
+        <div className="p-5 glass">
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /> Drafting answer
           </div>
@@ -166,12 +166,12 @@ export function ResultsStream({ query }: { query: string }) {
         </div>
       ) : !error ? (
         <div className="space-y-3">
-          <div className="h-5 w-2/3 bg-secondary rounded animate-pulse" />
-          <div className="h-4 w-1/2 bg-secondary rounded animate-pulse" />
-          <div className="h-40 w-full bg-secondary/60 rounded-xl animate-pulse mt-4" />
+          <div className="h-5 w-2/3 bg-white/10 rounded animate-pulse" />
+          <div className="h-4 w-1/2 bg-white/10 rounded animate-pulse" />
+          <div className="h-40 w-full glass animate-pulse mt-4" />
           <div className="grid sm:grid-cols-2 gap-3 mt-2">
-            <div className="h-28 bg-secondary/60 rounded-xl animate-pulse" />
-            <div className="h-28 bg-secondary/60 rounded-xl animate-pulse" />
+            <div className="h-28 glass animate-pulse" />
+            <div className="h-28 glass animate-pulse" />
           </div>
         </div>
       ) : null}

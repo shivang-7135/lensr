@@ -31,7 +31,7 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
               >
                 {p.image_url && (
                   <div className="aspect-[16/9] bg-white/5 overflow-hidden">
-                    <SafeImage src={p.image_url} alt={p.name} className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
+                    <SafeImage src={p.image_url} alt={p.name} className="w-full h-full object-cover" fallbackClassName="w-full h-full" zoomable />
                   </div>
                 )}
                 <div className="p-4 space-y-2 flex-1 flex flex-col">

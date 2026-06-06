@@ -159,20 +159,24 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           );
           if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
         } else if (finalIntent === "movies" && Array.isArray(cleaned.picks)) {
-          send({ type: "stage", stage: "generate_image" });
+          send({ type: "stage", stage: "fetch_posters" });
           const picks = cleaned.picks as Record<string, unknown>[];
-          const enriched = await Promise.all(picks.slice(0, 6).map(async (p) => {
-            if (p.poster_url && typeof p.poster_url === "string" && /^https?:|^data:/.test(p.poster_url)) return p;
+          const enriched = await Promise.all(picks.map(async (p) => {
             const title = (p.title as string) ?? "";
-            const year = p.year ? ` (${p.year})` : "";
-            const genre = (p.genre as string) ?? "";
-            const url = await generateAIImage(
-              `Cinematic movie poster for the film "${title}"${year}. ${genre ? `Genre: ${genre}.` : ""} Dramatic lighting, moody atmosphere, vertical 2:3 portrait composition, no text or title overlay, photoreal.`,
-              apiKey,
-            );
-            return url ? { ...p, poster_url: url } : p;
+            const year = p.year ? String(p.year) : "";
+            const where = (p.where_to_watch as string) ?? "";
+            const next: Record<string, unknown> = { ...p };
+            // Always attach a watch URL (platform-specific search)
+            next.watch_url = buildWatchUrl(title, where);
+            // Fetch real poster from iTunes if missing
+            const hasReal = typeof p.poster_url === "string" && /^https?:\/\//.test(p.poster_url);
+            if (!hasReal && title) {
+              const poster = await fetchRealPoster(title, year);
+              if (poster) next.poster_url = poster;
+            }
+            return next;
           }));
-          cleaned = { ...cleaned, picks: [...enriched, ...picks.slice(6)] };
+          cleaned = { ...cleaned, picks: enriched };
         }
 
         send({
@@ -608,6 +612,55 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
     });
   }
   return o;
+}
+
+const STREAMING_SEARCH: Record<string, (q: string) => string> = {
+  netflix: (q) => `https://www.netflix.com/search?q=${q}`,
+  prime: (q) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  "amazon prime": (q) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  "prime video": (q) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${q}`,
+  hbo: (q) => `https://play.max.com/search?q=${q}`,
+  max: (q) => `https://play.max.com/search?q=${q}`,
+  "hbo max": (q) => `https://play.max.com/search?q=${q}`,
+  hulu: (q) => `https://www.hulu.com/search?q=${q}`,
+  "disney+": (q) => `https://www.disneyplus.com/search?q=${q}`,
+  disney: (q) => `https://www.disneyplus.com/search?q=${q}`,
+  "apple tv": (q) => `https://tv.apple.com/search?term=${q}`,
+  "apple tv+": (q) => `https://tv.apple.com/search?term=${q}`,
+  peacock: (q) => `https://www.peacocktv.com/search?q=${q}`,
+  paramount: (q) => `https://www.paramountplus.com/search/?query=${q}`,
+  "paramount+": (q) => `https://www.paramountplus.com/search/?query=${q}`,
+  youtube: (q) => `https://www.youtube.com/results?search_query=${q}+movie`,
+};
+
+function buildWatchUrl(title: string, where: string): string {
+  const q = encodeURIComponent(title);
+  const w = (where || "").toLowerCase().trim();
+  for (const key of Object.keys(STREAMING_SEARCH)) {
+    if (w.includes(key)) return STREAMING_SEARCH[key](q);
+  }
+  return `https://www.justwatch.com/us/search?q=${q}`;
+}
+
+async function fetchRealPoster(title: string, year: string): Promise<string | null> {
+  const term = encodeURIComponent(year ? `${title} ${year}` : title);
+  // iTunes Search API — no key, returns official artwork. Try movie then tvSeason.
+  for (const entity of ["movie", "tvSeason"]) {
+    try {
+      const r = await fetch(
+        `https://itunes.apple.com/search?term=${term}&media=${entity === "movie" ? "movie" : "tvShow"}&entity=${entity}&limit=1`,
+        { headers: { "User-Agent": "Lensr/1.0" } },
+      );
+      if (!r.ok) continue;
+      const j = (await r.json()) as { results?: Array<{ artworkUrl100?: string }> };
+      const art = j.results?.[0]?.artworkUrl100;
+      if (art) {
+        // Upscale 100x100 → 600x900 (2:3 portrait)
+        return art.replace(/\/\d+x\d+(bb)?\.(jpg|png)/i, "/600x600bb.jpg");
+      }
+    } catch { /* try next */ }
+  }
+  return null;
 }
 
 async function generateAIImage(prompt: string, apiKey: string): Promise<string | null> {

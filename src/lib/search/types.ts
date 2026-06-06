@@ -98,6 +98,7 @@ export interface MoviePick {
   synopsis?: string;
   poster_url?: string;
   trailer_url?: string;
+  watch_url?: string;
 }
 export interface MoviesStructured {
   tldr: string;

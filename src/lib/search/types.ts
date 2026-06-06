@@ -46,6 +46,7 @@ export interface PriceHistoryStructured {
   lowest_price?: { price: number; when?: string; where?: string };
   current_price?: number;
   price_points?: PricePoint[];
+  related_links?: RelatedLink[];
   detail_markdown?: string;
 }
 

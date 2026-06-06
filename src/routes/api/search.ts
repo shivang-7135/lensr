@@ -309,12 +309,12 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
           const isNewsy = /\b(news|today|this week|latest|update|breaking)\b/i.test(query);
           const topUrls = sources.slice(0, 3).map((s) => s.url);
           if (!cleaned.hero_image_url) {
-            const entities = (keywords.entities ?? []).slice(0, 2);
-            const wikiQueries = [query, ...entities].filter(Boolean) as string[];
+            const wikiQueries = generalMediaQueries(query, keywords);
             const img = isNewsy
               ? (await pickImage([], topUrls)) || (await pickImage(wikiQueries, []))
               : (await pickImage(wikiQueries, topUrls));
-            if (img) cleaned = { ...cleaned, hero_image_url: img };
+            const fallback = img || await fetchWikiImage("Knowledge");
+            if (fallback) cleaned = { ...cleaned, hero_image_url: fallback };
           }
           const existingLinks = Array.isArray(cleaned.related_links) ? (cleaned.related_links as Array<{ label: string; url: string }>) : [];
           if (existingLinks.length < 3 && sources.length) {
@@ -324,6 +324,8 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
               .slice(0, 3 - existingLinks.length)
               .map((s) => ({ label: hostnameLabel(s.url), url: s.url }));
             cleaned = { ...cleaned, related_links: [...existingLinks, ...extras] };
+          } else if (existingLinks.length === 0) {
+            cleaned = { ...cleaned, related_links: [{ label: "Search web", url: googleSearch(query) }] };
           }
         }
 

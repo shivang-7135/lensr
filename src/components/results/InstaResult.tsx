@@ -24,7 +24,7 @@ export function InstaResult({ data }: { data: InstaStructured }) {
       {data.generated_image_url && (
         <div className="glass overflow-hidden relative p-0">
           <div className="aspect-square sm:aspect-[4/5] max-h-[560px] bg-white/5">
-            <SafeImage src={data.generated_image_url} alt={data.scene ?? "Generated"} className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
+            <SafeImage src={data.generated_image_url} alt={data.scene ?? "Generated"} className="w-full h-full object-cover" fallbackClassName="w-full h-full" zoomable />
           </div>
           <div className="absolute top-3 left-3 inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full glass-soft">
             <Sparkles className="h-3 w-3 text-accent" /> AI generated

@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { ThemeProvider, themeBootstrapScript } from "@/components/ThemeProvider";
 
 function NotFoundComponent() {
   return (
@@ -101,8 +102,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <HeadContent />
       </head>
       <body>
@@ -115,8 +117,7 @@ function RootShell({ children }: { children: ReactNode }) {
               left: "-10%",
               width: "60vw",
               height: "60vw",
-              background:
-                "radial-gradient(circle, oklch(0.6 0.22 270 / 80%), transparent 70%)",
+              background: "var(--aurora-blob-1)",
             }}
           />
           <div
@@ -126,9 +127,9 @@ function RootShell({ children }: { children: ReactNode }) {
               right: "-10%",
               width: "55vw",
               height: "55vw",
-              background:
-                "radial-gradient(circle, oklch(0.65 0.18 200 / 70%), transparent 70%)",
+              background: "var(--aurora-blob-2)",
               animationDelay: "-12s",
+              animationDuration: "44s",
             }}
           />
           <div
@@ -138,12 +139,13 @@ function RootShell({ children }: { children: ReactNode }) {
               left: "40%",
               width: "40vw",
               height: "40vw",
-              background:
-                "radial-gradient(circle, oklch(0.65 0.2 320 / 50%), transparent 70%)",
+              background: "var(--aurora-blob-3)",
               animationDelay: "-22s",
+              animationDuration: "52s",
             }}
           />
         </div>
+        <div className="aurora-shimmer" aria-hidden />
         <div className="aurora-noise" aria-hidden />
         {children}
         <Scripts />
@@ -156,9 +158,11 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

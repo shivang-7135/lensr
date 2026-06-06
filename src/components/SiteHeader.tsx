@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
   const [email, setEmail] = useState<string | null>(null);
@@ -37,15 +38,16 @@ export function SiteHeader() {
           <span className="text-xs text-muted-foreground hidden sm:inline">— search that thinks</span>
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2 text-sm">
-          <Link to="/insta" className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors">Insta</Link>
-          <Link to="/_authenticated/saved" className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors">Saved</Link>
+          <Link to="/insta" className="px-3 py-1.5 rounded-full hover:bg-foreground/10 transition-colors">Insta</Link>
+          <Link to="/_authenticated/saved" className="px-3 py-1.5 rounded-full hover:bg-foreground/10 transition-colors">Saved</Link>
           {isAdmin && (
-            <Link to="/_authenticated/admin" className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors text-accent">Admin</Link>
+            <Link to="/_authenticated/admin" className="px-3 py-1.5 rounded-full hover:bg-foreground/10 transition-colors text-accent">Admin</Link>
           )}
+          <ThemeToggle />
           {email ? (
             <button
               onClick={() => supabase.auth.signOut()}
-              className="px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors text-muted-foreground"
+              className="px-3 py-1.5 rounded-full hover:bg-foreground/10 transition-colors text-muted-foreground"
             >
               Sign out
             </button>

@@ -1,57 +1,76 @@
-## Goal
+# Plan: Light Mode + Categories + Motion/Image Polish
 
-Re-skin the whole app with an Apple "Liquid Glass" / 3D glass aesthetic — translucent panels, soft specular highlights, depth, ambient color wash — so the product feels premium and worth coming back to. No functional changes.
+## 1. Light/Dark Theme Switch
 
-## Visual system
+**Tokens (`src/styles.css`)**
+- Move current dark values from `:root` into `.dark { ... }` (and keep as default for SSR by also setting on `:root` initially, then overridden).
+- Add a parallel light palette under `:root` (no `.dark` class):
+  - Background: soft pearl `oklch(0.985 0.005 250)` with subtle warm tint
+  - Foreground: `oklch(0.18 0.02 270)`
+  - Glass tints flipped: white-on-light becomes `oklch(0 0 0 / 4–10%)` with darker rim and softer drop shadow
+  - Accent kept (azure) but slightly deepened for contrast on light
+  - Aurora gradient: lighter pastel version (mint, sky, lilac) at lower opacity
+- Both palettes share the same token names so all components work unchanged.
 
-**Background stage.** Deep near-black canvas (`oklch(0.14 0.02 270)`) layered with two large, soft, slowly drifting radial blobs (indigo + cyan) and a faint noise grain. This is the "behind the glass" that makes blur read.
+**Theme provider (`src/components/ThemeProvider.tsx` — new)**
+- Reads `localStorage("lensr-theme")` with fallback to `prefers-color-scheme`.
+- Applies/removes `dark` class on `<html>`.
+- Exposes `useTheme()` returning `{ theme, setTheme, toggle }`.
+- Mount inside `RootComponent` in `__root.tsx`. Inline a tiny `<script>` in `RootShell` head to set the class before hydration (prevents flash).
 
-**Glass primitive.** A single `.glass` utility used by every card, panel, header, button, and input:
-- `background`: layered — a 60–75% translucent surface tint over a subtle top-to-bottom white-to-transparent gradient (the specular sheen)
-- `backdrop-filter: blur(24px) saturate(140%)` (Tailwind `backdrop-blur-xl backdrop-saturate-150`, never hand-write `-webkit-backdrop-filter` per project gotcha)
-- `border: 1px solid rgba(255,255,255,0.18)` plus an inner `box-shadow: inset 0 1px 0 rgba(255,255,255,0.25)` for the rim light
-- outer shadow with a colored tint to suggest the glass casting light onto the surface below
-- `border-radius: 1.25rem` (22px, Apple-ish)
+**Toggle UI (`src/components/ThemeToggle.tsx` — new)**
+- Sun/Moon lucide icon button using `glass-soft` style, placed in `SiteHeader`.
+- Smooth icon crossfade on click.
 
-Two variants on the same primitive: `.glass-strong` (more opacity, for primary panels) and `.glass-soft` (more transparent, for chrome/header).
+**Root shell**
+- Replace hardcoded `<html className="dark">` with `<html>` + the no-flash script. Aurora blob colors switched via CSS variables (already tokenized) so they adapt automatically.
 
-**Color tokens (`src/styles.css`).** Rewrite to a dark glass palette in oklch with proper light/dark `@theme inline` mapping:
-- background: deep indigo-black
-- foreground: near-white with cool tint
-- primary/accent: vibrant azure (`oklch(0.72 0.18 245)`) for CTAs and citations
-- signal: mint for positive deltas (lowest price, pros)
-- destructive: warm coral
-- New tokens: `--glass-tint`, `--glass-border`, `--glass-rim`, `--glass-shadow`, `--gradient-aurora`, `--shadow-elevated`
+## 2. Twenty Search Categories on Homepage
 
-**Typography.** Keep current font-display for headers; tighten tracking on h1/h2 (`tracking-tight`), bump weight to `font-semibold`. Body stays at the same scale.
+Replace the current 4-card `FEATURES` grid with a richer **"What can you ask Lensr?"** section: 20 curated example queries grouped by intent, each clickable to pre-fill the search bar and submit.
 
-**Motion.** Subtle: cards get a `transform: translateY(-2px)` + brighter rim on hover (200ms ease-out). The background blobs drift on a 30s loop. Result cards fade-up on mount (staggered 60ms). No heavy parallax, no scroll-jacking.
+**Categories (20)**
+Shopping · Price history · Trip planning · Insta caption · Recipe ideas · Gift finder · Book recommendations · Movie/TV picks · Coding help · Career & resume · Fitness plan · Health questions · Finance & investing · Local events · Restaurant picks · Home decor · Tech comparisons · Learning path · News digest · Productivity tools
 
-## Files touched (presentation only)
+**Implementation**
+- New `src/lib/search/categories.ts` exporting an array of `{ id, label, icon, example, gradient }`.
+- New `src/components/CategoryGrid.tsx`: responsive 4-col grid of `glass glass-hover` chips. Click → navigates to `/?q=<example>` (or calls the same submit path the SearchBar uses). Stagger fade-up animation.
+- `SearchBar` gets an optional `initialQuery` prop (or reads `?q=`) so click-to-search works.
+- Section heading: "Try asking…" + small caption.
 
-1. **`src/styles.css`** — replace color tokens with the glass palette, add `.glass` / `.glass-strong` / `.glass-soft` utilities via `@utility`, add aurora background, add `--shadow-elevated`, add fade-up keyframes.
-2. **`src/routes/__root.tsx`** — add the fixed aurora background div + noise overlay behind the app, so every route inherits the stage. Switch body to the dark glass background.
-3. **`src/components/SiteHeader.tsx`** — convert to a sticky `glass-soft` bar with rim light.
-4. **`src/components/SearchBar.tsx`** — glass input with inset shadow and azure focus glow.
-5. **`src/routes/index.tsx`** — landing hero re-styled on the glass stage (no copy changes).
-6. **Result cards** — swap solid `border border-border` / `bg-secondary` for the glass utilities:
-   - `ResultsStream.tsx` (intent chip, partial-answer panel, skeletons)
-   - `results/ResearchPanel.tsx`, `AgentTimeline.tsx`
-   - `results/ShoppingResult.tsx`, `TripResult.tsx`, `InstaResult.tsx`, `PriceHistoryResult.tsx`, `GeneralResult.tsx`
-   - `results/SourcesGrid.tsx`, `DetailDisclosure.tsx`
-   Each gets the glass surface, the rim light, and an aurora-tinted hover.
-7. **`src/components/ui/button.tsx`** — add a `glass` variant (default primary CTA in new theme) using the same tokens; existing variants stay so admin/auth pages don't break.
+## 3. Background Animation + Image Capability Enhancement
 
-## Out of scope
+**Background motion (`__root.tsx` + `styles.css`)**
+- Add a third slow drift animation with different easing/duration so blobs no longer move in sync.
+- Add a faint `conic-gradient` "shimmer" layer that rotates over 60s.
+- Add subtle parallax: blobs translate slightly on mouse move (throttled, respects `prefers-reduced-motion`).
+- New `@keyframes aurora-rotate` + `@utility aurora-shimmer`. All animations gated behind `@media (prefers-reduced-motion: no-preference)`.
 
-- Auth / admin route redesigns beyond inheriting the new tokens (they keep their current shadcn layout)
-- Re-doing the price-history chart visuals beyond updating its stroke to the new accent
-- Animations beyond hover lift, fade-up on mount, and the ambient background drift
-- New imagery / illustrations
+**Image capability enhancements**
+- **SafeImage upgrade (`src/components/results/SafeImage.tsx`)**: add shimmer skeleton while loading, smooth fade-in on load, optional `aspectRatio` prop, click-to-zoom lightbox using a Radix Dialog.
+- **InstaResult**: when AI image is generated, show a polaroid-style glass frame with subtle tilt + hover lift; allow download button.
+- **ShoppingResult**: product images get hover zoom (transform scale 1.04) and a glass overlay revealing the "Buy" pills on hover.
+- **GeneralResult**: if a sufficiently good hero image URL exists in sources, render a wide hero card at the top of the answer.
+- **AI image prompt (`src/routes/api/search.ts`)**: extend the gemini image step to also run for `trip` (a hero destination shot) and `shopping` (a clean studio mockup) when no real product image was found in sources. Keep sanitization: AI-generated URLs are allowed as-is (they're data URLs / blob refs, not external).
 
-## Acceptance
+## Out of Scope
+- No backend schema changes.
+- No auth changes.
+- No changes to search agent prompts beyond the additional image step described.
 
-- Every surface that today uses `bg-secondary` / `bg-card` / `border-border` in result UI reads as translucent frosted glass over the aurora background.
-- Hover on any glass card shows a brighter rim and a 2px lift.
-- Light mode still works (glass utilities adapt via the existing `:root` vs `.dark` tokens; dark is the default).
-- No Chrome regression from prefixed `backdrop-filter` (we only use Tailwind utilities or the standard property).
+## Files Touched
+**New**
+- `src/components/ThemeProvider.tsx`
+- `src/components/ThemeToggle.tsx`
+- `src/components/CategoryGrid.tsx`
+- `src/lib/search/categories.ts`
+
+**Edited**
+- `src/styles.css` (light palette, motion utilities)
+- `src/routes/__root.tsx` (theme bootstrap, extra aurora layer, parallax)
+- `src/routes/index.tsx` (CategoryGrid replaces FEATURES)
+- `src/components/SiteHeader.tsx` (ThemeToggle)
+- `src/components/SearchBar.tsx` (initialQuery / `?q=` support)
+- `src/components/results/SafeImage.tsx` (skeleton, lightbox)
+- `src/components/results/InstaResult.tsx`, `ShoppingResult.tsx`, `GeneralResult.tsx` (image polish)
+- `src/routes/api/search.ts` (extend AI image generation to trip/shopping fallbacks)

@@ -140,13 +140,32 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
         // Strip hallucinated image URLs / links that aren't in the sources list
         let cleaned = sanitizeStructured(finalIntent, structured, sources);
 
-        // For insta intent, generate a hero image based on the scene/mood
+        // Image enrichment: generate a hero shot when we don't already have one from sources
         if (finalIntent === "insta") {
           send({ type: "stage", stage: "generate_image" });
           const scene = (cleaned.scene as string) || query;
           const mood = (cleaned.mood as string) || "";
-          const imgUrl = await generateInstaImage(scene, mood, apiKey);
+          const imgUrl = await generateAIImage(
+            `Instagram-ready photograph. ${scene}. Mood: ${mood || "vibrant"}. Cinematic lighting, shallow depth of field, vibrant colors, social-media composition.`,
+            apiKey,
+          );
           if (imgUrl) cleaned = { ...cleaned, generated_image_url: imgUrl };
+        } else if (finalIntent === "trip" && !cleaned.hero_image_url) {
+          send({ type: "stage", stage: "generate_image" });
+          const dest = (cleaned.destination as string) || query;
+          const imgUrl = await generateAIImage(
+            `Travel hero photograph of ${dest}. Iconic landmark, golden hour, wide cinematic composition, vibrant colors, no text or watermark.`,
+            apiKey,
+          );
+          if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
+        } else if (finalIntent === "general" && !cleaned.hero_image_url) {
+          send({ type: "stage", stage: "generate_image" });
+          const subject = (cleaned.tldr as string)?.slice(0, 140) || query;
+          const imgUrl = await generateAIImage(
+            `Editorial hero illustration representing: ${subject}. Modern, minimal, vivid colors, soft gradients, no text.`,
+            apiKey,
+          );
+          if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
         }
 
         send({
@@ -567,11 +586,8 @@ function sanitizeStructured(intent: Intent, obj: Record<string, unknown>, source
   return o;
 }
 
-async function generateInstaImage(scene: string, mood: string, apiKey: string): Promise<string | null> {
+async function generateAIImage(prompt: string, apiKey: string): Promise<string | null> {
   try {
-    const prompt =
-      `Instagram-ready photograph. ${scene}. Mood: ${mood || "vibrant"}. ` +
-      "Cinematic lighting, shallow depth of field, vibrant colors, social-media composition.";
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

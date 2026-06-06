@@ -14,7 +14,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
-type Intent = "shopping" | "price_history" | "trip" | "insta" | "general";
+type Intent = "shopping" | "price_history" | "trip" | "insta" | "movies" | "general";
 
 export const Route = createFileRoute("/api/search")({
   server: {
@@ -140,7 +140,7 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
         // Strip hallucinated image URLs / links that aren't in the sources list
         let cleaned = sanitizeStructured(finalIntent, structured, sources);
 
-        // Image enrichment: generate a hero shot when we don't already have one from sources
+        // Image enrichment: generate a hero/poster shot when we don't already have one from sources
         if (finalIntent === "insta") {
           send({ type: "stage", stage: "generate_image" });
           const scene = (cleaned.scene as string) || query;
@@ -158,14 +158,21 @@ async function streamAdaptiveAgent(query: string): Promise<Response> {
             apiKey,
           );
           if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
-        } else if (finalIntent === "general" && !cleaned.hero_image_url) {
+        } else if (finalIntent === "movies" && Array.isArray(cleaned.picks)) {
           send({ type: "stage", stage: "generate_image" });
-          const subject = (cleaned.tldr as string)?.slice(0, 140) || query;
-          const imgUrl = await generateAIImage(
-            `Editorial hero illustration representing: ${subject}. Modern, minimal, vivid colors, soft gradients, no text.`,
-            apiKey,
-          );
-          if (imgUrl) cleaned = { ...cleaned, hero_image_url: imgUrl };
+          const picks = cleaned.picks as Record<string, unknown>[];
+          const enriched = await Promise.all(picks.slice(0, 6).map(async (p) => {
+            if (p.poster_url && typeof p.poster_url === "string" && /^https?:|^data:/.test(p.poster_url)) return p;
+            const title = (p.title as string) ?? "";
+            const year = p.year ? ` (${p.year})` : "";
+            const genre = (p.genre as string) ?? "";
+            const url = await generateAIImage(
+              `Cinematic movie poster for the film "${title}"${year}. ${genre ? `Genre: ${genre}.` : ""} Dramatic lighting, moody atmosphere, vertical 2:3 portrait composition, no text or title overlay, photoreal.`,
+              apiKey,
+            );
+            return url ? { ...p, poster_url: url } : p;
+          }));
+          cleaned = { ...cleaned, picks: [...enriched, ...picks.slice(6)] };
         }
 
         send({

@@ -10,9 +10,9 @@ export function PriceHistoryResult({ data }: { data: PriceHistoryStructured }) {
   const Trend = TREND_ICON[data.trend ?? "unknown"];
   const currency = data.currency ?? "$";
   const points = (data.price_points ?? []).filter((p) => typeof p.price === "number");
-  const lowest = data.lowest_price ?? (points.length
-    ? points.reduce((min, p) => (p.price < min.price ? p : min))
-    : null);
+  const minPoint = points.length ? points.reduce((min, p) => (p.price < min.price ? p : min)) : null;
+  const lowest = data.lowest_price
+    ?? (minPoint ? { price: minPoint.price, when: minPoint.date, where: minPoint.label } : null);
 
   return (
     <div className="space-y-6">

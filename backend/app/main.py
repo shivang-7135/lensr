@@ -54,4 +54,5 @@ async def search(body: SearchBody, x_backend_secret: str | None = Header(default
 
 @app.exception_handler(Exception)
 async def all_errors(_req: Request, exc: Exception):
-    return JSONResponse({"error": str(exc)}, status_code=500)
+    logger.exception("Unhandled error: %s", exc)
+    return JSONResponse({"error": "Internal server error"}, status_code=500)

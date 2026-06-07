@@ -1,7 +1,10 @@
 """FastAPI entrypoint with SSE streaming."""
 from __future__ import annotations
 import json
+import logging
 from typing import AsyncIterator
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware

@@ -1031,47 +1031,99 @@ async function pickImage(textQueries: string[], fallbackUrls: string[]): Promise
   return null;
 }
 
-/** Fetch a URL's HTML and extract og:image / twitter:image. */
+/** Reject private / link-local / loopback hosts to prevent SSRF. */
+function isPublicHttpUrl(raw: string): URL | null {
+  let u: URL;
+  try { u = new URL(raw); } catch { return null; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  const host = u.hostname.toLowerCase();
+  if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal") || host.endsWith(".local")) return null;
+  // Literal IPv6 — block all (covers ::1, fc00::/7, fe80::/10, etc.)
+  if (host.includes(":") || host.startsWith("[")) return null;
+  // IPv4 private ranges
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
+    if (a === 10 || a === 127 || a === 0) return null;
+    if (a === 169 && b === 254) return null; // link-local incl. 169.254.169.254 (AWS IMDS)
+    if (a === 172 && b >= 16 && b <= 31) return null;
+    if (a === 192 && b === 168) return null;
+    if (a >= 224) return null; // multicast / reserved
+  }
+  return u;
+}
+
+/** Fetch a URL's HTML and extract og:image / twitter:image. SSRF-hardened. */
 async function fetchOgImage(url: string): Promise<string | null> {
+  const safe = isPublicHttpUrl(url);
+  if (!safe) return null;
   try {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 3500);
-    const r = await fetch(url, {
+    const r = await fetch(safe.toString(), {
       signal: ctl.signal,
       headers: { "User-Agent": "Lensr/1.0 (lovable.dev)", Accept: "text/html" },
-      redirect: "follow",
+      redirect: "manual",
     });
     clearTimeout(t);
+    // Manually follow one same-origin redirect to a public host
+    if (r.status >= 300 && r.status < 400) {
+      const loc = r.headers.get("location");
+      if (!loc) return null;
+      const next = isPublicHttpUrl(new URL(loc, safe).toString());
+      if (!next || next.origin !== safe.origin) return null;
+      return fetchOgImageDirect(next);
+    }
     if (!r.ok) return null;
-    const ct = r.headers.get("content-type") || "";
-    if (!/text\/html/i.test(ct)) return null;
-    const reader = r.body?.getReader();
-    if (!reader) return null;
-    const dec = new TextDecoder();
-    let html = "";
-    let bytes = 0;
-    while (bytes < 120_000) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bytes += value.byteLength;
-      html += dec.decode(value, { stream: true });
-      if (/<\/head>/i.test(html)) break;
-    }
-    try { await reader.cancel(); } catch { /* ignore */ }
-    const match =
-      html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
-      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    const img = match?.[1];
-    if (!img) return null;
-    if (img.startsWith("//")) return `https:${img}`;
-    if (img.startsWith("/")) {
-      try { return new URL(img, url).toString(); } catch { return null; }
-    }
-    return /^https?:\/\//.test(img) ? img : null;
+    return await extractOgFromResponse(r, safe);
   } catch {
     return null;
   }
+}
+
+async function fetchOgImageDirect(u: URL): Promise<string | null> {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 3500);
+    const r = await fetch(u.toString(), {
+      signal: ctl.signal,
+      headers: { "User-Agent": "Lensr/1.0 (lovable.dev)", Accept: "text/html" },
+      redirect: "manual",
+    });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    return await extractOgFromResponse(r, u);
+  } catch { return null; }
+}
+
+async function extractOgFromResponse(r: Response, base: URL): Promise<string | null> {
+  const ct = r.headers.get("content-type") || "";
+  if (!/text\/html/i.test(ct)) return null;
+  const reader = r.body?.getReader();
+  if (!reader) return null;
+  const dec = new TextDecoder();
+  let html = "";
+  let bytes = 0;
+  while (bytes < 120_000) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    html += dec.decode(value, { stream: true });
+    if (/<\/head>/i.test(html)) break;
+  }
+  try { await reader.cancel(); } catch { /* ignore */ }
+  const match =
+    html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i) ||
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+  const img = match?.[1];
+  if (!img) return null;
+  let resolved: string | null = null;
+  if (img.startsWith("//")) resolved = `https:${img}`;
+  else if (img.startsWith("/")) { try { resolved = new URL(img, base).toString(); } catch { return null; } }
+  else if (/^https?:\/\//.test(img)) resolved = img;
+  if (!resolved) return null;
+  return isPublicHttpUrl(resolved) ? resolved : null;
 }
 
 

@@ -1,67 +1,32 @@
-## Goal
+# Plan: Rewrite `README.md` end-to-end
 
-Bring the remaining categories up to the same bar as Movies / Books / Places / Recipes / Events: pull a **real image** (Wikipedia first, Open Graph fallback) and guarantee at least one **click-to-action** link per item — even when the LLM omits one.
+Replace the current `README.md` with a complete, accurate, structured document reflecting the codebase as it stands today (TanStack Start frontend + Python LangGraph backend + Lovable Cloud, 20 search categories, per-intent enrichment pipeline, security hardening).
 
-## Scope of changes (only `src/routes/api/search.ts` + a few result cards + types)
+## Sections in the new README
 
-### 1. New shared helpers in `src/routes/api/search.ts`
+1. **Header** — name, one-line pitch, live URL (`https://lensr-shivang.lovable.app`), tech badges (React 19, TanStack Start, Tailwind v4, Supabase, FastAPI, LangGraph, AWS Bedrock).
+2. **What it does** — intent-aware search across 20 categories; each result card shows a real image (Wikipedia → OG fallback) plus at least one external CTA (Amazon / Maps / Booking / publisher).
+3. **Architecture diagram** — full ASCII diagram showing Browser → TanStack Start Worker (SSE proxy / mock fallback) → Python FastAPI → router_graph → per-intent StateGraphs → tools (Serper, scraper, Bedrock LLM/Vision, price_store, places). Also show Lovable Cloud (Supabase) for auth, RLS tables, storage.
+4. **Request flow (search)** — step-by-step from submit → `/api/search` SSE → proxy vs mock → `ResultsStream` event consumption (`intent_detected`, `keywords_extracted`, `search_plan`, `tool_call`, `search_results`, `scrape_progress`, `reflection`, `partial_answer`, `final`, `error`).
+5. **Intents & result cards** — table of all 10 backend intents mapped to the 20 UI categories, with the result component, image source strategy, and CTA strategy per intent:
+   - shopping / gifts / tech → `ShoppingResult` — Wikipedia + OG → Amazon CTA
+   - price_history → `PriceHistoryResult` — Amazon / Keepa / CamelCamelCamel / Google Shopping CTAs
+   - trip → `TripResult` — destination photo + Maps/Booking/Flights CTAs
+   - insta → `InstaResult` — place photos + Open in Maps pill
+   - movies / books / places / recipes / events / food → respective cards
+   - general (fitness, health, career, finance, code, learn, home, tools, news) → `GeneralResult` — Wikipedia first, OG for news
+6. **Auth & roles** — Supabase email/password, `handle_new_user` trigger, `user_roles` table, `has_role(uid, role)` SECURITY DEFINER, admin-only mutations, `/admin` gated by `admin` role for managing `api_keys`.
+7. **Server-side patterns** — `createServerFn` for app-internal RPC with `requireSupabaseAuth`; `src/routes/api/*` for raw HTTP (SSE `/api/search`, `/api/public/backend-keys` for backend key sync); SSRF guard `isPublicHttpUrl` on outbound OG fetches.
+8. **Security posture** — RLS on all public tables with explicit `GRANT`s; `user_roles` admin-only INSERT/UPDATE/DELETE; storage `insta-images` owner-scoped UPDATE; FastAPI exception handler returns generic 500; SSRF blocks localhost, private IP ranges, IMDS.
+9. **Repo layout** — refreshed tree covering `src/components/results/*`, `src/lib/search/*`, `src/routes/api/*`, `src/routes/_authenticated/*`, `backend/app/agents/*`, `backend/app/tools/*`, `supabase/migrations/*`.
+10. **Running locally** — frontend via Lovable preview; backend `cd backend && python -m venv .venv && pip install -e . && uvicorn app.main:app --reload`; required Lovable secrets (`BACKEND_BASE_URL`, `BACKEND_SHARED_SECRET`); fallback mock agent behavior when unset.
+11. **Environment variables** — full table split into frontend (`VITE_*`), TanStack Worker (`BACKEND_BASE_URL`, `BACKEND_SHARED_SECRET`, `LOVABLE_API_KEY`), Python backend (`AWS_*`, `BEDROCK_MODEL_*`, `SERPER_API_KEY`, `DATABASE_URL`, `BACKEND_SHARED_SECRET`).
+12. **Deployment** — frontend published to `lensr-shivang.lovable.app`; backend recommended on AWS App Runner / Fly / Render, Dockerfile included.
+13. **Default admin** — `admin@admin.com` (password rotated to random value by latest migration; reset via Supabase auth dashboard).
+14. **Credits / license** — built with Lovable; Bedrock + Serper.
 
-- `fetchOgImage(url)` — fetch the source URL (HEAD-checked, 2s timeout, only HTML), regex-extract `og:image` / `twitter:image`. Used as a fallback when Wikipedia returns nothing.
-- `pickImage(queries[], fallbackUrls[])` — try `fetchWikiImage` for each query string, then `fetchOgImage` for each fallback URL, return first hit. Reused everywhere.
-- `amazonSearch(q)`, `googleShoppingSearch(q)`, `googleMapsSearch(q)`, `bookingSearch(dest)`, `googleNewsSearch(q)` — small URL builders (mirroring existing `buildWatchUrl`).
+## Files changed
 
-### 2. Shopping / Gifts / Tech (all already route to `shopping` intent)
+- `README.md` (full rewrite)
 
-In the `finalIntent === "shopping"` enrichment branch:
-- For every pick, if `image_url` missing → `pickImage([name + " product", name], buy_links/url)`.
-- Always ensure `buy_links` has at least an **Amazon search link** (`amazonSearch(name)`) when none survived sanitization, plus the original `url` if present.
-- Mark the Amazon link with `label: "Amazon"` so the existing pill renders the right text.
-
-No card changes needed — `ShoppingResult.tsx` already renders `image_url` + `buy_links` pills.
-
-### 3. Trip + Insta places (destination photos + Maps/Booking)
-
-Trip enrichment:
-- If `hero_image_url` missing → `pickImage([destination, destination + " skyline"], [])` (replaces the current AI-generated hero — real photo preferred, AI is fallback only).
-- For each `days[i]` missing `image_url` → `fetchWikiImage(theme + " " + destination)`.
-- Ensure `related_links` always contains at least: **Google Maps** (`googleMapsSearch(destination)`), **Booking.com** (`bookingSearch(destination)`), **Google Flights** search.
-
-Insta enrichment:
-- For each `place_suggestions[i]` missing `image_url` → `fetchWikiImage(name)`.
-- Ensure each suggestion has a `url` → fall back to `googleMapsSearch(name)`.
-- Update `InstaResult.tsx` to render a small **"Open in Maps"** pill on each suggestion (uses `ExternalLink` icon already imported pattern from MoviesResult).
-
-### 4. Restaurants / Food → Places
-
-The `regexIntentHint` already catches `restaurant|cafe|...`. Strengthen it: add `food near me`, `where to eat`, `dinner spot`, `breakfast spot`, `brunch`, `bakery`, `dessert`, `bar near`. No new intent — guarantees the food queries land on the Places card with its existing Maps/website CTAs.
-
-### 5. News digest + remaining general categories (fitness, health, career, finance, code, learn, home, tools, news)
-
-These stay on `general` intent (per user — "for other remaining categories use wikipedia"). In the general post-process branch (new):
-- If `hero_image_url` missing → `pickImage([query, first entity from keywords], firstFewSourceUrls)`.
-- Promote sources into `related_links` when the LLM didn't fill them: take top 3 sources, label = hostname, so the card always has external CTAs (read-on-publisher behavior).
-- For news-style queries (regex: `news|today|this week|latest|update`) prefer Open Graph image of the top source over Wikipedia so users see the actual article hero.
-
-`GeneralResult.tsx` already renders `hero_image_url` and `related_links` — no changes needed.
-
-### 6. Types
-
-`src/lib/search/types.ts`:
-- `InstaCaption.place_suggestions` items already allow `url`/`image_url` — no change.
-- No new fields; existing schema covers everything.
-
-## Files
-
-```text
-src/routes/api/search.ts            # main edits: helpers + enrichment branches + regex
-src/components/results/InstaResult.tsx   # add "Open in Maps" pill per suggestion
-```
-
-That's it — Shopping / Trip / General cards already render the new fields, so no UI rewrites are needed beyond the Insta pill.
-
-## Behavior contract
-
-After this change, every result card across all 20 homepage categories will:
-1. Show a real image (Wikipedia → Open Graph → AI fallback already in place for trip/insta hero).
-2. Have at least one external CTA button per item (Amazon / Maps / Booking / publisher).
-3. Never block on slow image lookups — all image fetches run in `Promise.all` with try/catch, and the card renders without an image if everything fails (existing `SafeImage` handles that).
+No backend/code edits. No new dependencies.

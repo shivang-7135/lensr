@@ -71,8 +71,22 @@ def _parse_json(raw: str) -> dict | None:
     return None
 
 
+def _today_str() -> str:
+    return datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+
+
+DATE_PREAMBLE = (
+    "CURRENT DATE: {today}. Your training data is stale. "
+    "Treat the web evidence as ground truth and the current date as authoritative. "
+    "Never claim a product, movie, event, or release is 'upcoming', 'will release', or 'expected' "
+    "if its date is on or before the current date — describe it as already released/launched/past. "
+    "If evidence contradicts your prior knowledge, trust the evidence."
+)
+
+
 async def _llm_json(system: str, user: str, *, use_router: bool = False) -> dict:
     llm = router_llm() if use_router else reasoning_llm()
+    system = DATE_PREAMBLE.format(today=_today_str()) + "\n\n" + system
     msg = await llm.ainvoke([SystemMessage(system), HumanMessage(user)])
     data = _parse_json(_text(msg))
     return data or {}

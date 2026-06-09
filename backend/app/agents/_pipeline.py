@@ -9,6 +9,7 @@ Per-intent agents only supply: system prompt + JSON schema + search-plan hints.
 from __future__ import annotations
 import asyncio
 import json
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Awaitable, Callable
 
@@ -70,8 +71,22 @@ def _parse_json(raw: str) -> dict | None:
     return None
 
 
+def _today_str() -> str:
+    return datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+
+
+DATE_PREAMBLE = (
+    "CURRENT DATE: {today}. Your training data is stale. "
+    "Treat the web evidence as ground truth and the current date as authoritative. "
+    "Never claim a product, movie, event, or release is 'upcoming', 'will release', or 'expected' "
+    "if its date is on or before the current date — describe it as already released/launched/past. "
+    "If evidence contradicts your prior knowledge, trust the evidence."
+)
+
+
 async def _llm_json(system: str, user: str, *, use_router: bool = False) -> dict:
     llm = router_llm() if use_router else reasoning_llm()
+    system = DATE_PREAMBLE.format(today=_today_str()) + "\n\n" + system
     msg = await llm.ainvoke([SystemMessage(system), HumanMessage(user)])
     data = _parse_json(_text(msg))
     return data or {}
@@ -89,6 +104,7 @@ KEYWORDS_SYS = (
 PLAN_SYS_BASE = (
     "You are a search planner. Produce 4-6 diverse Google queries that together will surface "
     "the best evidence to answer the user. Avoid duplicates. Prefer specific over generic. "
+    "Include the current year in at least 2 queries to bias toward fresh, post-release results. "
     'Return ONLY JSON: {"queries": ["...", "..."]}'
 )
 
@@ -177,6 +193,7 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         for i, e in enumerate(evidence[:10])
     )
     user = (
+        f"Today: {_today_str()}\n"
         f"User query: {query}\n"
         f"Keywords/entities: {json.dumps(kw)}\n\n"
         f"Web evidence (cite by [n]):\n{context}"

@@ -104,6 +104,7 @@ KEYWORDS_SYS = (
 PLAN_SYS_BASE = (
     "You are a search planner. Produce 4-6 diverse Google queries that together will surface "
     "the best evidence to answer the user. Avoid duplicates. Prefer specific over generic. "
+    "Include the current year in at least 2 queries to bias toward fresh, post-release results. "
     'Return ONLY JSON: {"queries": ["...", "..."]}'
 )
 

@@ -192,6 +192,7 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         for i, e in enumerate(evidence[:10])
     )
     user = (
+        f"Today: {_today_str()}\n"
         f"User query: {query}\n"
         f"Keywords/entities: {json.dumps(kw)}\n\n"
         f"Web evidence (cite by [n]):\n{context}"

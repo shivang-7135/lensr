@@ -21,7 +21,7 @@ from ..tools.scraper import fetch_clean
 
 MAX_LOOPS = 2
 MAX_SOURCES = 8
-SCRAPE_TOP_N = 5
+SCRAPE_TOP_N = 3  # Reduced for speed
 
 
 @dataclass
@@ -137,7 +137,7 @@ async def _plan_queries(query: str, kw: dict, cfg: IntentConfig) -> list[str]:
         if q and q.lower() not in seen:
             seen.add(q.lower())
             out.append(q)
-    return out[:4]  # max 4 queries to save API calls
+    return out[:3]  # max 3 queries for speed
 
 
 async def _fanout_search(queries: list[str]) -> list[dict]:
@@ -192,18 +192,19 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         context_parts.append(f"[{i+1}] {e['title']}\n{snippet}\n{body}")
     context = "\n\n".join(context_parts)
     
+    # Intents needing rich structured output use the reasoning model (Sonnet)
+    # Other intents can use the faster router model (Haiku)
+    needs_rich_schema = cfg.name in ("shopping", "trip", "price_history", "insta")
+    
     sys = (
         "You are a helpful research assistant. Synthesize the web evidence into a clear, actionable answer.\n\n"
         f"{cfg.system_prompt}\n\n"
         "RESPONSE FORMAT - Return ONLY valid JSON (no markdown fences):\n"
         f"{cfg.schema_hint}\n\n"
-        "CRITICAL REQUIREMENTS:\n"
-        '- "tldr": 1-2 sentences directly answering the query\n'
-        '- "key_facts": Array of 4-6 specific, actionable bullet points (not generic)\n'
-        '- "detail_markdown": Organized markdown with ## headers and bullet lists\n'
-        "- Be specific with names, numbers, and recommendations\n"
-        "- Cite sources using [n] format\n"
-        "- Keep response concise but informative"
+        "CRITICAL: You MUST include all fields from the schema above.\n"
+        "- Follow the exact schema structure with all nested arrays\n"
+        "- Be specific with product names, prices, pros/cons\n"
+        "- Cite sources using [n] format"
     )
     
     user = (
@@ -212,7 +213,8 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         f"Evidence:\n{context}"
     )
     
-    data = await _llm_json(sys, user)
+    # Use reasoning model (Sonnet) for complex schemas, router (Haiku) for simple ones
+    data = await _llm_json(sys, user, use_router=not needs_rich_schema)
     
     if not data or not data.get("tldr"):
         # Smart fallback: extract useful info from evidence
@@ -288,6 +290,18 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
                     evidence[i] = by_url[e["url"]]
 
         if loop >= MAX_LOOPS:
+            break
+
+        # Skip reflection if we have enough diverse evidence (saves ~3s)
+        scraped_count = sum(1 for e in evidence if e.get("body"))
+        if scraped_count >= 3 and len(evidence) >= 5:
+            yield {
+                "type": "reflection",
+                "loop": loop,
+                "done": True,
+                "missing": "",
+                "followup_queries": [],
+            }
             break
 
         reflection = await _reflect(query, evidence, loop)

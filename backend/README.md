@@ -17,12 +17,12 @@ cp .env.example .env   # fill in your values
 uvicorn app.main:app --reload --port 8000
 ```
 
-Then in the Lovable project set the secret:
+Then in the frontend set these environment variables:
 
 - `BACKEND_BASE_URL` = `http://localhost:8000` (or your deployed URL)
 - `BACKEND_SHARED_SECRET` = a long random string (must match `BACKEND_SHARED_SECRET` in `.env`)
 
-The frontend route `src/routes/api/search.ts` proxies SSE from this service. If `BACKEND_BASE_URL` is unset, the frontend falls back to a mock agent using the Lovable AI Gateway so the UI keeps working.
+The frontend route `src/routes/api/search.ts` proxies SSE from this service. If `BACKEND_BASE_URL` is unset, the frontend returns a 503 error.
 
 ## Endpoints
 
@@ -87,4 +87,4 @@ See `.env.example`. The important ones:
 - `BEDROCK_MODEL_VISION` — e.g. `anthropic.claude-3-5-sonnet-20241022-v2:0`
 - `SERPER_API_KEY` — https://serper.dev
 - `DATABASE_URL` — Postgres for price history
-- `BACKEND_SHARED_SECRET` — must match the secret you set in Lovable
+- `BACKEND_SHARED_SECRET` — must match the secret you set in the frontend env

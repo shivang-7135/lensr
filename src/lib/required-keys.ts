@@ -70,7 +70,7 @@ export const REQUIRED_KEYS: RequiredKey[] = [
     name: "BACKEND_BASE_URL",
     required: false,
     group: "Backend",
-    description: "Override for the FastAPI LangGraph service URL. Stored as a Lovable secret, not here — shown for reference.",
+    description: "Override for the FastAPI LangGraph service URL. Set as a server environment variable.",
     usedBy: ["api/search proxy"],
   },
 ];

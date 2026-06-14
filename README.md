@@ -2,8 +2,8 @@
 
 > Intent-aware search assistant. Ask in natural language, get a category-tailored answer card with a real image and at least one click-out CTA — every time.
 
-- **Live:** https://lensr-shivang.lovable.app
-- **Stack:** React 19 · TanStack Start v1 (Cloudflare Worker) · Tailwind v4 · shadcn/ui · Lovable Cloud (Supabase) · FastAPI · LangGraph · AWS Bedrock (Claude 3.5 Sonnet / Haiku) · Serper.dev
+- **Live:** https://lensr.studio
+- **Stack:** React 19 · TanStack Start v1 (Vercel) · Tailwind v4 · shadcn/ui · Supabase · FastAPI · LangGraph · AWS Bedrock (Claude 3.5 Sonnet / Haiku) · Serper.dev
 
 ---
 
@@ -31,24 +31,17 @@ For every card we guarantee:
             │ supabase-js (auth, RLS reads, storage)   │ fetch SSE
             ▼                                          ▼
  ┌────────────────────────────┐    ┌─────────────────────────────────┐
- │  Lovable Cloud (Supabase)  │    │  TanStack Start  (CF Worker)    │
+ │      Supabase (Postgres)   │    │  TanStack Start  (Vercel)       │
  │                            │    │                                 │
  │  auth.users                │    │  POST /api/search   (SSE)       │
- │  public.profiles           │    │   ├─ BACKEND_BASE_URL set?      │
- │  public.user_roles         │    │   │    → proxy Python + secret  │
- │  public.api_keys (admin)   │    │   └─ else mock via Lovable AI   │
- │  public.saved_searches     │    │      Gateway                    │
- │  public.uploaded_images    │    │                                 │
- │  storage: insta-images     │    │  Image enrichment + SSRF guard  │
- │                            │    │   isPublicHttpUrl, fetchWiki,   │
- │  RLS + GRANTs everywhere   │    │   fetchOgImage, pickImage       │
- │  has_role(uid,'admin')     │    │                                 │
- │                            │    │  createServerFn (RPC):          │
- │                            │    │   listApiKeys / upsert /        │
+ │  public.profiles           │    │   └─ proxy Python backend       │
+ │  public.user_roles         │    │      with X-Backend-Secret      │
+ │  public.api_keys (admin)   │    │                                 │
+ │  public.saved_searches     │    │  createServerFn (RPC):          │
+ │  storage: insta-images     │    │   listApiKeys / upsert /        │
  │                            │    │   deleteApiKey / checkIsAdmin   │
- │                            │    │                                 │
- │                            │    │  Public route:                  │
- │                            │    │   /api/public/backend-keys      │
+ │  RLS + GRANTs everywhere   │    │                                 │
+ │  has_role(uid,'admin')     │    │                                 │
  └────────────────────────────┘    └─────────────┬───────────────────┘
                                                  │ HTTPS + X-Backend-Secret
                                                  ▼
@@ -75,14 +68,13 @@ For every card we guarantee:
 ## 3. Request flow (search)
 
 1. User submits a query on `/` or `/results`.
-2. Browser POSTs `/api/search` on the TanStack Start worker.
+2. Browser POSTs `/api/search` on the TanStack Start server.
 3. `src/routes/api/search.ts`:
-   - If `BACKEND_BASE_URL` is a valid http(s) URL → proxy the SSE stream from Python with `X-Backend-Secret`.
-   - Otherwise → stream a **mock LangGraph-shaped agent** via the Lovable AI Gateway so the UI keeps working without the Python service.
-4. Either path emits the same SSE event vocabulary, consumed by `ResultsStream`:
+   - Proxies the SSE stream from the Python backend with `X-Backend-Secret`.
+   - Returns 503 if `BACKEND_BASE_URL` is not configured.
+4. The backend emits SSE events consumed by `ResultsStream`:
    `intent_detected` → `keywords_extracted` → `search_plan` → `tool_call` / `search_results` / `scrape_progress` → `reflection` → `partial_answer` (token stream) → `final` (structured payload + sources) → `error`.
-5. The worker **post-processes `final`** for image + CTA enrichment per intent (Wikipedia → OG → AI fallback; Amazon / Maps / Booking / publisher), then forwards the enriched event.
-6. The matching `*Result.tsx` card renders the structured payload; `SourcesGrid` + `AgentTimeline` show provenance.
+5. The matching `*Result.tsx` card renders the structured payload; `SourcesGrid` + `AgentTimeline` show provenance.
 
 ---
 
@@ -94,104 +86,53 @@ For every card we guarantee:
 | `price_history` | Price history                                                   | `PriceHistoryResult`     | Wikipedia → OG            | Amazon · Keepa · CamelCamelCamel · Google Shopping |
 | `trip`          | Trip planning                                                   | `TripResult`             | Wikipedia (skyline) → AI  | Google Maps · Booking.com · Google Flights        |
 | `insta`         | Insta captions                                                  | `InstaResult`            | Wikipedia per place       | "Open in Maps" pill per suggestion                |
-| `general` → `movies`  | Movies & TV                                               | `MoviesResult`           | Poster from search        | JustWatch / trailer                               |
-| `general` → `books`   | Books                                                     | `BooksResult`            | Cover from search         | Goodreads · buy link                              |
-| `general` → `recipes` | Recipes                                                   | `RecipesResult`          | OG from publisher         | Source URL                                        |
-| `general` → `places`  | Restaurants & Food                                        | `PlacesResult`           | OG / Maps                 | Google Maps · website                             |
-| `general` → `events`  | Local events                                              | `EventsResult`           | OG from publisher         | Tickets · source                                  |
-| `general`       | Fitness, Health, Career, Finance, Coding, Learning, Home, Productivity, News | `GeneralResult` | Wikipedia first; OG for news queries | Top sources promoted to `related_links` |
-
-The `regexIntentHint` in `src/routes/api/search.ts` routes restaurant / cafe / "where to eat" queries to `places`, and `news|today|this week|latest|update` queries prefer the OG image of the top article over Wikipedia.
+| `movies`        | Movies & TV                                                     | `MoviesResult`           | Poster from search        | JustWatch / trailer                               |
+| `books`         | Books                                                           | `BooksResult`            | Cover from search         | Goodreads · buy link                              |
+| `recipes`       | Recipes                                                         | `RecipesResult`          | OG from publisher         | Source URL                                        |
+| `places`        | Restaurants & Food                                              | `PlacesResult`           | OG / Maps                 | Google Maps · website                             |
+| `events`        | Local events                                                    | `EventsResult`           | OG from publisher         | Tickets · source                                  |
+| `general`       | Fitness, Health, Career, Finance, Coding, Learning, Home, News  | `GeneralResult`          | Wikipedia first; OG for news | Top sources promoted to `related_links`        |
 
 ---
 
 ## 5. Auth & roles
 
-- Supabase email/password. `handle_new_user` trigger creates a `profiles` row and assigns the default `user` role.
+- Supabase email/password + Google OAuth (via Supabase Auth provider).
+- `handle_new_user` trigger creates a `profiles` row and assigns the default `user` role.
 - Roles live in **`public.user_roles`** (separate table — never on `profiles`).
-- **`has_role(uid, role)`** is a `SECURITY DEFINER` helper used by every RLS policy that needs role checks (canonical Supabase pattern, avoids recursive RLS).
+- **`has_role(uid, role)`** is a `SECURITY DEFINER` helper used by every RLS policy.
 - `INSERT` / `UPDATE` / `DELETE` on `user_roles` are restricted to admins → no self-promotion.
-- `/admin` is gated by the `admin` role and lets you view/edit backend API keys from the UI (`public.api_keys`, admin-only RLS).
-- Required-key registry: `src/lib/required-keys.ts` (kept in sync with `backend/app/config.py`).
+- `/admin` is gated by the `admin` role and lets you view/edit backend API keys from the UI.
 
 ---
 
-## 6. Server-side patterns
+## 6. Security posture
 
-- **`createServerFn`** (`src/lib/*.functions.ts`) for app-internal RPC. Protected calls use the `requireSupabaseAuth` middleware; `attachSupabaseAuth` is registered globally in `src/start.ts` so the browser auto-attaches the bearer token.
-- **File-based server routes** (`src/routes/api/*`) for raw HTTP:
-  - `/api/search` — SSE proxy + mock fallback.
-  - `/api/public/backend-keys` — bypasses Lovable published-site auth so the Python backend can pull config (signature-checked, no PII).
-- **SSRF guard** — `isPublicHttpUrl()` blocks `localhost`, `.internal` / `.local`, IPv6, and private/link-local IPv4 (incl. `169.254.169.254` IMDS). `fetchOgImage` uses `redirect: "manual"`, allows at most one same-origin hop, and re-validates the final URL.
-- **No Supabase Edge Functions** — TanStack Start's Worker runtime handles all server logic.
-
----
-
-## 7. Security posture
-
-- RLS enabled on every `public.*` table with explicit `GRANT` per role (authenticated / service_role; `anon` only where public reads are intentional).
+- RLS enabled on every `public.*` table with explicit `GRANT` per role.
 - `user_roles` mutations restricted to `has_role(auth.uid(), 'admin')`.
 - `api_keys` is admin-only (read + write).
-- `storage.objects` policy on `insta-images` scopes `UPDATE` to `(storage.foldername(name))[1] = auth.uid()::text`.
-- FastAPI global exception handler returns a generic `"Internal server error"` and logs the trace server-side — no `str(exc)` leakage.
-- Default admin password (`admin@admin.com`) was rotated to a random 24-byte secret via migration; reset via the Supabase auth dashboard for first use.
+- Storage policy on `insta-images` scopes uploads to user's own folder.
+- FastAPI global exception handler returns generic errors — no stack trace leakage.
+- SSRF protection in image fetching blocks localhost, private IPs, and link-local addresses.
 
 ---
 
-## 8. Repo layout
-
-```text
-src/
-  routes/
-    index.tsx                       landing + search bar + 20-category grid
-    results.tsx                     streamed answer view
-    insta.tsx                       Instagram caption agent (image upload)
-    auth.tsx                        sign-in / sign-up
-    _authenticated/
-      route.tsx                     auth gate (redirects to /auth)
-      saved.tsx                     saved searches
-      admin.tsx                     API-key admin (role: admin)
-    api/
-      search.ts                     SSE proxy + mock + image/CTA enrichment + SSRF
-      public/backend-keys.ts        key sync for Python backend
-  components/
-    SearchBar.tsx · ResultsStream.tsx · SiteHeader.tsx · CategoryGrid.tsx
-    results/
-      ShoppingResult · PriceHistoryResult · TripResult · InstaResult
-      MoviesResult · BooksResult · RecipesResult · PlacesResult · EventsResult
-      GeneralResult · SourcesGrid · AgentTimeline · ResearchPanel
-      SafeImage · DetailDisclosure
-  lib/
-    api-keys.functions.ts           admin CRUD over api_keys
-    required-keys.ts                expected backend secrets registry
-    search/
-      types.ts                      SSE + structured payload types
-      categories.ts                 20-category homepage registry
-      citations.tsx                 inline citation rendering
-  integrations/supabase/            auto-generated client + middleware (do not edit)
-  start.ts                          registers attachSupabaseAuth middleware
-
-backend/
-  app/
-    main.py                         FastAPI + SSE + generic error handler
-    config.py · llm.py · router_graph.py · schemas.py · cache.py
-    agents/
-      _pipeline.py                  shared search→extract→reason→answer graph
-      shopping.py · price_history.py · trip.py · insta.py · general.py
-    tools/
-      serper.py · scraper.py · price_store.py · bedrock_vision.py · places.py
-  Dockerfile · pyproject.toml · .env.example
-
-supabase/migrations/                tables, RLS, roles, storage policies, hardening
-```
-
----
-
-## 9. Running locally
+## 7. Running locally
 
 ### Frontend
 
-Managed by Lovable — open the preview in the editor. Lovable Cloud is already wired (`VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` injected).
+```bash
+bun install
+bun run dev
+```
+
+Set environment variables in `.env`:
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+BACKEND_BASE_URL=http://localhost:8000
+BACKEND_SHARED_SECRET=your-shared-secret
+```
 
 ### Python backend
 
@@ -203,16 +144,9 @@ cp .env.example .env   # fill values (AWS, Bedrock model IDs, Serper, DATABASE_U
 uvicorn app.main:app --reload --port 8000
 ```
 
-Then in the Lovable project set these secrets and deploy:
-
-- `BACKEND_BASE_URL` = `http://localhost:8000` (or your deployed URL)
-- `BACKEND_SHARED_SECRET` = must match the backend's `.env`
-
-> If `BACKEND_BASE_URL` is empty or not a valid http(s) URL, `/api/search` falls back to the mock agent via the Lovable AI Gateway so the UI keeps working.
-
 ---
 
-## 10. Environment variables
+## 8. Environment variables
 
 ### Frontend (build-time, public)
 
@@ -221,14 +155,12 @@ Then in the Lovable project set these secrets and deploy:
 | `VITE_SUPABASE_URL`               | Browser Supabase client        |
 | `VITE_SUPABASE_PUBLISHABLE_KEY`   | Browser Supabase client (RLS)  |
 
-### TanStack Start worker (runtime, server-only)
+### TanStack Start server (runtime, server-only)
 
 | Variable                  | Used for                                                |
 | ------------------------- | ------------------------------------------------------- |
-| `BACKEND_BASE_URL`        | Where `/api/search` proxies to (empty → mock fallback)  |
+| `BACKEND_BASE_URL`        | Where `/api/search` proxies to (required)               |
 | `BACKEND_SHARED_SECRET`   | Sent as `X-Backend-Secret` to the Python backend        |
-| `LOVABLE_API_KEY`         | Lovable AI Gateway (mock agent fallback)                |
-| `SUPABASE_SERVICE_ROLE_KEY` | Admin-only operations (never exposed to client)       |
 
 ### Python backend (`backend/.env`)
 
@@ -238,24 +170,18 @@ Then in the Lovable project set these secrets and deploy:
 | `BEDROCK_MODEL_REASONING` / `_ROUTER` / `_VISION` | Claude 3.5 Sonnet / Haiku / Vision IDs    |
 | `SERPER_API_KEY`                                  | Google SERP via serper.dev                |
 | `DATABASE_URL`                                    | Postgres for price history                |
-| `BACKEND_SHARED_SECRET`                           | Must match the Lovable secret             |
-| `CORS_ALLOW_ORIGIN`                               | Defaults to `*`                           |
+| `BACKEND_SHARED_SECRET`                           | Must match the frontend secret            |
+| `CORS_ALLOW_ORIGIN`                               | Defaults to `*`; set to `https://lensr.studio` in prod |
 
 ---
 
-## 11. Deployment
+## 9. Deployment
 
-- **Frontend** — published from Lovable to `https://lensr-shivang.lovable.app`. Stable preview URL: `project--{project-id}-dev.lovable.app`.
+- **Frontend** — Deployed to Vercel at `https://lensr.studio`. Auto-deploys on push to `main`.
 - **Backend** — Dockerfile included (`backend/Dockerfile`). Recommended: AWS App Runner or ECS Fargate (close to Bedrock, IAM roles instead of static keys). Fly.io and Render also work — set env vars and expose port 8000.
 
 ---
 
-## 12. Default admin
+## 10. Credits
 
-A default admin (`admin@admin.com`) is created by migration with the `admin` role. The initial weak password was rotated to a random 24-byte secret by the security-hardening migration — reset it via the Supabase auth dashboard before first sign-in.
-
----
-
-## 13. Credits
-
-Built with [Lovable](https://lovable.dev). Search powered by [Serper.dev](https://serper.dev) and AWS Bedrock (Anthropic Claude).
+Search powered by [Serper.dev](https://serper.dev) and AWS Bedrock (Anthropic Claude).

@@ -384,15 +384,16 @@
 .research-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
-  mix-blend-mode: screen;
+  filter: blur(70px);
+  opacity: 0.65;
+  mix-blend-mode: multiply;
   transform: translate(-50%, -50%);
   animation: research-float ease-in-out infinite;
 }
 
 .dark .research-blob {
-  opacity: 0.7;
+  opacity: 0.75;
+  mix-blend-mode: screen;
 }
 
 .research-pulse {
@@ -403,13 +404,13 @@
   height: 500px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, oklch(0.7 0.2 248 / 30%), transparent 70%);
-  filter: blur(60px);
+  background: radial-gradient(circle, oklch(0.6 0.25 248 / 45%), transparent 70%);
+  filter: blur(50px);
   animation: research-breathe 2.5s ease-in-out infinite;
 }
 
 .dark .research-pulse {
-  background: radial-gradient(circle, oklch(0.7 0.22 248 / 50%), transparent 70%);
+  background: radial-gradient(circle, oklch(0.65 0.25 248 / 55%), transparent 70%);
 }
 
 .research-shimmer {
@@ -418,27 +419,28 @@
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    oklch(0.7 0.2 270 / 15%) 60deg,
+    oklch(0.6 0.25 270 / 25%) 60deg,
     transparent 120deg,
-    oklch(0.75 0.18 200 / 12%) 200deg,
+    oklch(0.65 0.22 200 / 20%) 200deg,
     transparent 280deg,
-    oklch(0.7 0.2 320 / 10%) 340deg,
+    oklch(0.6 0.25 320 / 18%) 340deg,
     transparent 360deg
   );
-  filter: blur(100px);
-  animation: research-spin 10s linear infinite;
-  mix-blend-mode: screen;
+  filter: blur(80px);
+  animation: research-spin 8s linear infinite;
+  mix-blend-mode: multiply;
 }
 
 .dark .research-shimmer {
+  mix-blend-mode: screen;
   background: conic-gradient(
     from 0deg,
     transparent 0deg,
-    oklch(0.65 0.25 270 / 25%) 60deg,
+    oklch(0.65 0.25 270 / 30%) 60deg,
     transparent 120deg,
-    oklch(0.7 0.22 200 / 20%) 200deg,
+    oklch(0.7 0.22 200 / 25%) 200deg,
     transparent 280deg,
-    oklch(0.65 0.25 320 / 18%) 340deg,
+    oklch(0.65 0.25 320 / 22%) 340deg,
     transparent 360deg
   );
 }

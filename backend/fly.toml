@@ -1,0 +1,31 @@
+app = 'lensr-backend'
+primary_region = 'arn'  # Stockholm — close to user; Bedrock calls go to eu-west-1
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BEDROCK_MODEL_REASONING = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  BEDROCK_MODEL_ROUTER = "anthropic.claude-3-haiku-20240307-v1:0"
+  BEDROCK_MODEL_VISION = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  CORS_ALLOW_ORIGIN = "https://lensr.studio"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1  # Always keep 1 machine warm — no cold starts!
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[checks]
+  [checks.health]
+    type = "http"
+    port = 8000
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"

@@ -102,9 +102,9 @@ KEYWORDS_SYS = (
 )
 
 PLAN_SYS_BASE = (
-    "You are a search planner. Produce 4-6 diverse Google queries that together will surface "
-    "the best evidence to answer the user. Avoid duplicates. Prefer specific over generic. "
-    "Include the current year in at least 2 queries to bias toward fresh, post-release results. "
+    "You are a search planner. Produce exactly 3-4 diverse Google queries that together will surface "
+    "the best evidence. Avoid duplicates. Be specific. "
+    "Include the current year in 1-2 queries for fresh results. "
     'Return ONLY JSON: {"queries": ["...", "..."]}'
 )
 
@@ -181,38 +181,67 @@ async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
 
 
 async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentConfig) -> dict:
+    # Limit evidence to avoid context overflow - use only top 6 for speed
+    limited_evidence = evidence[:6]
+    
+    # Build concise context - shorter snippets for faster processing
+    context_parts = []
+    for i, e in enumerate(limited_evidence):
+        snippet = e.get('snippet', '')[:150]
+        body = e.get('body', '')[:600]
+        context_parts.append(f"[{i+1}] {e['title']}\n{snippet}\n{body}")
+    context = "\n\n".join(context_parts)
+    
     sys = (
-        cfg.system_prompt
-        + "\n\nIMPORTANT: You MUST return a valid JSON object. Do not include markdown code fences.\n"
-        + "Return ONLY a single JSON object matching this schema:\n"
-        + cfg.schema_hint
-        + '\n\nRequired fields:\n'
-        + '- "tldr": A 1-2 sentence summary answering the query directly\n'
-        + '- "detail_markdown": Rich markdown with headers, bullets, and bold for key points\n'
-        + "Synthesize the evidence into a helpful answer. If evidence is limited, still provide your best answer."
+        "You are a helpful research assistant. Synthesize the web evidence into a clear, actionable answer.\n\n"
+        f"{cfg.system_prompt}\n\n"
+        "RESPONSE FORMAT - Return ONLY valid JSON (no markdown fences):\n"
+        f"{cfg.schema_hint}\n\n"
+        "CRITICAL REQUIREMENTS:\n"
+        '- "tldr": 1-2 sentences directly answering the query\n'
+        '- "key_facts": Array of 4-6 specific, actionable bullet points (not generic)\n'
+        '- "detail_markdown": Organized markdown with ## headers and bullet lists\n'
+        "- Be specific with names, numbers, and recommendations\n"
+        "- Cite sources using [n] format\n"
+        "- Keep response concise but informative"
     )
-    # Limit evidence to avoid context overflow
-    limited_evidence = evidence[:8]
-    context = "\n\n".join(
-        f"[{i+1}] {e['title']} ({e['url']})\n{e['snippet']}\n{e.get('body','')[:1200]}"
-        for i, e in enumerate(limited_evidence)
-    )
+    
     user = (
-        f"Today: {_today_str()}\n"
-        f"User query: {query}\n"
-        f"Keywords/entities: {json.dumps(kw)}\n\n"
-        f"Web evidence (cite by [n]):\n{context}"
+        f"Query: {query}\n"
+        f"Key terms: {', '.join(kw.get('keywords', []))}\n\n"
+        f"Evidence:\n{context}"
     )
+    
     data = await _llm_json(sys, user)
+    
     if not data or not data.get("tldr"):
-        # Fallback: generate a basic response from snippets
-        snippets = " ".join(e.get("snippet", "")[:100] for e in limited_evidence[:3])
+        # Smart fallback: extract useful info from evidence
+        top_sources = limited_evidence[:4]
+        
+        # Create a meaningful summary from snippets
+        snippets = [e.get("snippet", "") for e in top_sources if e.get("snippet")]
+        combined = " ".join(snippets)[:400]
+        
+        # Extract any items that look like recommendations
+        items = []
+        for e in top_sources:
+            title = e.get("title", "")
+            snippet = e.get("snippet", "")
+            # Look for patterns like "1. X" or "- X" or "X by Y"
+            if title:
+                items.append(f"**{title}**: {snippet[:100]}...")
+        
         data = {
-            "tldr": f"Based on web search results for '{query}': {snippets[:200]}...",
-            "detail_markdown": f"# Results for: {query}\n\n" + "\n".join(
-                f"- **{e['title']}**: {e.get('snippet', 'No snippet')}" for e in limited_evidence[:5]
-            )
+            "tldr": f"Based on search results: {combined[:200]}..." if combined else f"Here's what I found about '{query}'",
+            "key_facts": [
+                snippet[:150] for snippet in snippets[:5] if snippet
+            ] if snippets else [],
+            "detail_markdown": (
+                f"## What I Found\n\n" +
+                "\n".join(f"- {item}" for item in items[:6])
+            ) if items else ""
         }
+    
     return data
 
 

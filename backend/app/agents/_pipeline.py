@@ -19,9 +19,9 @@ from ..llm import reasoning_llm, router_llm
 from ..tools.serper import google_search
 from ..tools.scraper import fetch_clean
 
-MAX_LOOPS = 3
-MAX_SOURCES = 12
-SCRAPE_TOP_N = 4
+MAX_LOOPS = 2
+MAX_SOURCES = 8
+SCRAPE_TOP_N = 5
 
 
 @dataclass
@@ -128,8 +128,8 @@ async def _plan_queries(query: str, kw: dict, cfg: IntentConfig) -> list[str]:
     qs = data.get("queries") or []
     if not qs:
         qs = cfg.seed_queries(query)
-    # always blend in 1-2 seed queries for safety
-    seeds = cfg.seed_queries(query)[:2]
+    # always blend in 1 seed query for safety
+    seeds = cfg.seed_queries(query)[:1]
     out = []
     seen = set()
     for q in list(qs) + seeds:
@@ -137,11 +137,11 @@ async def _plan_queries(query: str, kw: dict, cfg: IntentConfig) -> list[str]:
         if q and q.lower() not in seen:
             seen.add(q.lower())
             out.append(q)
-    return out[:6]
+    return out[:4]  # max 4 queries to save API calls
 
 
 async def _fanout_search(queries: list[str]) -> list[dict]:
-    results = await asyncio.gather(*[google_search(q, num=5) for q in queries], return_exceptions=True)
+    results = await asyncio.gather(*[google_search(q, num=3) for q in queries], return_exceptions=True)
     merged: list[dict] = []
     seen = set()
     for q, res in zip(queries, results):
@@ -183,14 +183,19 @@ async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
 async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentConfig) -> dict:
     sys = (
         cfg.system_prompt
-        + "\n\nReturn ONLY a single JSON object matching this schema (no markdown fences):\n"
+        + "\n\nIMPORTANT: You MUST return a valid JSON object. Do not include markdown code fences.\n"
+        + "Return ONLY a single JSON object matching this schema:\n"
         + cfg.schema_hint
-        + '\nAlways include a "tldr" string and a "detail_markdown" string (a beautifully formatted markdown '
-        "explanation with sections, bullets, and bold highlights). Be honest about uncertainty."
+        + '\n\nRequired fields:\n'
+        + '- "tldr": A 1-2 sentence summary answering the query directly\n'
+        + '- "detail_markdown": Rich markdown with headers, bullets, and bold for key points\n'
+        + "Synthesize the evidence into a helpful answer. If evidence is limited, still provide your best answer."
     )
+    # Limit evidence to avoid context overflow
+    limited_evidence = evidence[:8]
     context = "\n\n".join(
-        f"[{i+1}] {e['title']} ({e['url']})\n{e['snippet']}\n{e.get('body','')[:1500]}"
-        for i, e in enumerate(evidence[:10])
+        f"[{i+1}] {e['title']} ({e['url']})\n{e['snippet']}\n{e.get('body','')[:1200]}"
+        for i, e in enumerate(limited_evidence)
     )
     user = (
         f"Today: {_today_str()}\n"
@@ -199,8 +204,15 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         f"Web evidence (cite by [n]):\n{context}"
     )
     data = await _llm_json(sys, user)
-    if not data:
-        data = {"tldr": "Unable to synthesize a structured answer.", "detail_markdown": "_No structured output._"}
+    if not data or not data.get("tldr"):
+        # Fallback: generate a basic response from snippets
+        snippets = " ".join(e.get("snippet", "")[:100] for e in limited_evidence[:3])
+        data = {
+            "tldr": f"Based on web search results for '{query}': {snippets[:200]}...",
+            "detail_markdown": f"# Results for: {query}\n\n" + "\n".join(
+                f"- **{e['title']}**: {e.get('snippet', 'No snippet')}" for e in limited_evidence[:5]
+            )
+        }
     return data
 
 

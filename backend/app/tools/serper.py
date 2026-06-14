@@ -4,7 +4,7 @@ import httpx
 from ..config import settings
 
 
-async def google_search(query: str, num: int = 8) -> list[dict]:
+async def google_search(query: str, num: int = 5) -> list[dict]:
     if not settings.serper_api_key:
         return []
     async with httpx.AsyncClient(timeout=15) as client:

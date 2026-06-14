@@ -30,5 +30,5 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export const useTheme = () => useContext(ThemeCtx);
 
-/** Inline script to apply theme before hydration (prevents flash). */
-export const themeBootstrapScript = `(function(){try{var s=localStorage.getItem('lensr-theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var d=s?s==='dark':m;var r=document.documentElement;if(d)r.classList.add('dark');else r.classList.remove('dark');r.style.colorScheme=d?'dark':'light';}catch(e){document.documentElement.classList.add('dark');}})();`;
+/** Inline script to apply theme before hydration (prevents flash). Default: dark. */
+export const themeBootstrapScript = `(function(){try{var s=localStorage.getItem('lensr-theme');var d=s?s==='dark':true;var r=document.documentElement;if(d)r.classList.add('dark');else r.classList.remove('dark');r.style.colorScheme=d?'dark':'light';}catch(e){document.documentElement.classList.add('dark');}})();`;

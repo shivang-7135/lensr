@@ -364,3 +364,124 @@
     linear-gradient(to right, oklch(1 0 0 / 4%) 1px, transparent 1px),
     linear-gradient(to bottom, oklch(1 0 0 / 4%) 1px, transparent 1px);
 }
+
+/* ============ Research Animation — Color Splash ============ */
+
+.research-animation-container {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 0.8s ease-out;
+}
+
+.research-animation-container.fading {
+  opacity: 0;
+}
+
+.research-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  transform: translate(-50%, -50%);
+  animation: research-float ease-in-out infinite;
+}
+
+.dark .research-blob {
+  opacity: 0.7;
+}
+
+.research-pulse {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  width: 500px;
+  height: 500px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, oklch(0.7 0.2 248 / 30%), transparent 70%);
+  filter: blur(60px);
+  animation: research-breathe 2.5s ease-in-out infinite;
+}
+
+.dark .research-pulse {
+  background: radial-gradient(circle, oklch(0.7 0.22 248 / 50%), transparent 70%);
+}
+
+.research-shimmer {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    oklch(0.7 0.2 270 / 15%) 60deg,
+    transparent 120deg,
+    oklch(0.75 0.18 200 / 12%) 200deg,
+    transparent 280deg,
+    oklch(0.7 0.2 320 / 10%) 340deg,
+    transparent 360deg
+  );
+  filter: blur(100px);
+  animation: research-spin 10s linear infinite;
+  mix-blend-mode: screen;
+}
+
+.dark .research-shimmer {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    oklch(0.65 0.25 270 / 25%) 60deg,
+    transparent 120deg,
+    oklch(0.7 0.22 200 / 20%) 200deg,
+    transparent 280deg,
+    oklch(0.65 0.25 320 / 18%) 340deg,
+    transparent 360deg
+  );
+}
+
+@keyframes research-float {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1) translateY(0);
+  }
+  25% {
+    transform: translate(-50%, -50%) scale(1.2) translateY(-25px) translateX(20px);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(0.9) translateY(15px) translateX(-15px);
+  }
+  75% {
+    transform: translate(-50%, -50%) scale(1.15) translateY(-20px) translateX(-25px);
+  }
+}
+
+@keyframes research-breathe {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.7;
+  }
+}
+
+@keyframes research-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .research-blob,
+  .research-pulse,
+  .research-shimmer {
+    animation: none !important;
+  }
+  .research-animation-container {
+    opacity: 0.3;
+  }
+}

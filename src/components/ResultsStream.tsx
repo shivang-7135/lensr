@@ -16,14 +16,39 @@ import { EventsResult } from "@/components/results/EventsResult";
 
 const INTENT_LABEL: Record<SearchIntent, string> = {
   shopping: "Shopping",
-  price_history: "Price history",
-  trip: "Trip planner",
+  price_history: "Price History",
+  trip: "Trip Planner",
   insta: "Instagram",
   movies: "Movies & TV",
   recipes: "Recipes",
   books: "Books",
   places: "Places",
   events: "Events",
+  tech: "Tech",
+  health: "Health",
+  finance: "Finance",
+  news: "News",
+  sports: "Sports",
+  howto: "How-To",
+  learning: "Learning",
+  jobs: "Jobs & Careers",
+  local: "Local Services",
+  comparison: "Comparison",
+  gift: "Gift Ideas",
+  legal: "Legal Info",
+  gaming: "Gaming",
+  diy: "DIY",
+  fitness: "Fitness",
+  pets: "Pets",
+  music: "Music",
+  productivity: "Productivity",
+  weather: "Weather",
+  real_estate: "Real Estate",
+  automotive: "Automotive",
+  food: "Food & Dining",
+  fashion: "Fashion",
+  parenting: "Parenting",
+  dating: "Dating",
   general: "General",
 };
 
@@ -45,7 +70,34 @@ function isUsable(intent: SearchIntent, d: Record<string, unknown> | null): bool
     case "places": return hasArr(d, "picks");
     case "events": return hasArr(d, "picks");
     case "price_history": return d.typical_price_range != null || d.buy_now_score != null;
-    case "general": return !!(d.tldr || d.detail_markdown || hasArr(d, "key_facts"));
+    // New intents - they use GeneralResult with tldr/key_facts/detail_markdown
+    case "tech":
+    case "health":
+    case "finance":
+    case "news":
+    case "sports":
+    case "howto":
+    case "learning":
+    case "jobs":
+    case "local":
+    case "comparison":
+    case "gift":
+    case "legal":
+    case "gaming":
+    case "diy":
+    case "fitness":
+    case "pets":
+    case "music":
+    case "productivity":
+    case "weather":
+    case "real_estate":
+    case "automotive":
+    case "food":
+    case "fashion":
+    case "parenting":
+    case "dating":
+    case "general":
+      return !!(d.tldr || d.detail_markdown || hasArr(d, "key_facts") || hasArr(d, "key_points") || hasArr(d, "tips") || hasArr(d, "picks"));
     default: return false;
   }
 }

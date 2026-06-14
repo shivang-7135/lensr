@@ -194,7 +194,12 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
     
     # Intents needing rich structured output use the reasoning model (Sonnet)
     # Other intents can use the faster router model (Haiku)
-    needs_rich_schema = cfg.name in ("shopping", "trip", "price_history", "insta")
+    needs_rich_schema = cfg.name in (
+        "shopping", "trip", "price_history", "insta",
+        "movies", "recipes", "books", "places", "events",
+        "tech", "health", "finance", "jobs", "comparison",
+        "gift", "gaming", "fitness", "real_estate", "automotive", "food",
+    )
     
     sys = (
         "You are a helpful research assistant. Synthesize the web evidence into a clear, actionable answer.\n\n"

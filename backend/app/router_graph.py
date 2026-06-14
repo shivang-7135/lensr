@@ -6,19 +6,95 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from .llm import router_llm
-from .agents import shopping, price_history, trip, insta, general
-
-Intent = Literal["shopping", "price_history", "trip", "insta", "general"]
-
-CLASSIFY_SYS = (
-    "Classify the user's search query into exactly one intent. "
-    'Return ONLY JSON: {"intent": "shopping|price_history|trip|insta|general"}.\n'
-    "- shopping: comparing products, 'best X', reviews, buying guidance\n"
-    "- price_history: price tracking, when to buy, sale windows\n"
-    "- trip: travel plans, itineraries, destination ideas\n"
-    "- insta: captions, hashtags, photo spots, image analysis\n"
-    "- general: everything else"
+from .agents import (
+    shopping, price_history, trip, insta, general,
+    movies, recipes, books, places, events,
+    tech, health, finance, news, sports,
+    howto, learning, jobs, local, comparison,
+    gift, legal, gaming, diy, fitness,
+    pets, music, productivity, weather, real_estate,
+    automotive, food, fashion, parenting, dating,
 )
+
+Intent = Literal[
+    "shopping", "price_history", "trip", "insta", "general",
+    "movies", "recipes", "books", "places", "events",
+    "tech", "health", "finance", "news", "sports",
+    "howto", "learning", "jobs", "local", "comparison",
+    "gift", "legal", "gaming", "diy", "fitness",
+    "pets", "music", "productivity", "weather", "real_estate",
+    "automotive", "food", "fashion", "parenting", "dating",
+]
+
+CLASSIFY_SYS = """Classify the user's search query into exactly one intent.
+Return ONLY JSON: {"intent": "<intent>"}
+
+INTENTS (choose the most specific one):
+
+SHOPPING & BUYING:
+- shopping: comparing products, 'best X', reviews, buying guidance, product recommendations
+- price_history: price tracking, when to buy, sale windows, price drops, deal timing
+- gift: gift ideas, presents for someone, gift recommendations
+
+TRAVEL & PLACES:
+- trip: travel plans, itineraries, vacation planning, destination ideas, travel tips
+- places: restaurants, bars, cafes, attractions, local venues, "where to go"
+- food: restaurant recommendations, food delivery, cuisine guides, dining options
+- local: local services (plumbers, doctors, lawyers, mechanics, salons)
+- weather: weather forecasts, climate info, "what's the weather", best time to visit
+
+ENTERTAINMENT:
+- movies: films, TV shows, streaming recommendations, "what to watch", actor info
+- books: book recommendations, reading lists, author info, book reviews
+- music: songs, artists, albums, playlists, concerts, music recommendations
+- events: concerts, festivals, shows, local happenings, ticket info
+- gaming: video games, game guides, walkthroughs, game recommendations
+
+SOCIAL MEDIA:
+- insta: Instagram captions, hashtags, photo spots, social media content
+
+KNOWLEDGE & LEARNING:
+- tech: programming, software, technology, coding help, tech products
+- learning: educational explanations, "explain X", concepts, how things work
+- howto: step-by-step instructions, tutorials, "how do I", guides
+- diy: home improvement, crafts, repairs, DIY projects
+
+HEALTH & WELLNESS:
+- health: medical info, symptoms, treatments, wellness (NOT emergencies)
+- fitness: workouts, exercises, training plans, fitness advice
+- recipes: cooking instructions, meal ideas, "how to make", ingredients
+
+PROFESSIONAL & FINANCE:
+- finance: investing, stocks, budgeting, financial planning, money management
+- jobs: career advice, salary info, job hunting, interview prep
+- legal: legal questions, rights, laws, procedures (general info only)
+- real_estate: home buying/selling, rentals, housing market, neighborhoods
+
+LIFESTYLE:
+- automotive: cars, car buying, vehicle reviews, maintenance, repairs
+- pets: pet care, breeds, animal health, training, pet products
+- fashion: clothing, style advice, trends, outfit ideas
+- parenting: child-rearing, kid activities, family advice
+- dating: relationships, dating advice, date ideas
+- productivity: time management, organization, tools, workflows
+
+COMPARISON & RESEARCH:
+- comparison: X vs Y, comparing options, "which is better"
+- news: current events, breaking news, recent happenings
+- sports: scores, teams, players, sports news, game results
+
+FALLBACK:
+- general: anything that doesn't fit above categories
+
+RULES:
+1. Choose the MOST SPECIFIC intent that matches
+2. If query mentions "vs" or "compare", use "comparison"
+3. If query is about buying/best product, use "shopping"
+4. If query asks "how to" do something physical/practical, use "howto" or "diy"
+5. If query asks to explain a concept, use "learning"
+6. For restaurants/food places, use "food" (not "places")
+7. For workout/exercise, use "fitness" (not "health")
+"""
 
 DISPATCH = {
     "shopping": shopping.run_stream,
@@ -26,6 +102,36 @@ DISPATCH = {
     "trip": trip.run_stream,
     "insta": insta.run_stream,
     "general": general.run_stream,
+    "movies": movies.run_stream,
+    "recipes": recipes.run_stream,
+    "books": books.run_stream,
+    "places": places.run_stream,
+    "events": events.run_stream,
+    "tech": tech.run_stream,
+    "health": health.run_stream,
+    "finance": finance.run_stream,
+    "news": news.run_stream,
+    "sports": sports.run_stream,
+    "howto": howto.run_stream,
+    "learning": learning.run_stream,
+    "jobs": jobs.run_stream,
+    "local": local.run_stream,
+    "comparison": comparison.run_stream,
+    "gift": gift.run_stream,
+    "legal": legal.run_stream,
+    "gaming": gaming.run_stream,
+    "diy": diy.run_stream,
+    "fitness": fitness.run_stream,
+    "pets": pets.run_stream,
+    "music": music.run_stream,
+    "productivity": productivity.run_stream,
+    "weather": weather.run_stream,
+    "real_estate": real_estate.run_stream,
+    "automotive": automotive.run_stream,
+    "food": food.run_stream,
+    "fashion": fashion.run_stream,
+    "parenting": parenting.run_stream,
+    "dating": dating.run_stream,
 }
 
 

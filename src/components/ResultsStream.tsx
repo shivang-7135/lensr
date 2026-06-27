@@ -194,6 +194,7 @@ export function ResultsStream({ query }: { query: string }) {
     sources: { title: string; url: string }[];
   } | null>(null);
   const [done, setDone] = useState(false);
+  const [cached, setCached] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -203,6 +204,7 @@ export function ResultsStream({ query }: { query: string }) {
     setIntent(null);
     setFinal(null);
     setDone(false);
+    setCached(false);
     setError(null);
     const ctl = new AbortController();
     abortRef.current = ctl;
@@ -223,6 +225,7 @@ export function ResultsStream({ query }: { query: string }) {
         const ev = JSON.parse(line.slice(6)) as StreamEvent;
         setEvents((prev) => [...prev, ev]);
         if (ev.type === "intent_detected") setIntent(ev.intent);
+        if (ev.type === "cache_hit") setCached(true);
         if (ev.type === "partial_answer") setPartial((p) => p + ev.delta);
         if (ev.type === "final") {
           setIntent(ev.intent);
@@ -299,10 +302,15 @@ export function ResultsStream({ query }: { query: string }) {
       <div className="mx-auto max-w-3xl w-full space-y-6 fade-up relative z-10">
         <ResearchPanel events={events} done={done} />
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {intent && (
             <span className="text-xs uppercase tracking-widest px-3 py-1 rounded-full glass-soft text-accent font-medium">
               {INTENT_LABEL[intent]}
+            </span>
+          )}
+          {cached && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
+              ⚡ Instant
             </span>
           )}
           <h1 className="font-display text-2xl sm:text-3xl tracking-tight leading-tight">

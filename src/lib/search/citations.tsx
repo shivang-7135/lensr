@@ -41,7 +41,7 @@ export function citationMarkdownComponents(sources: CitationSource[]): MdCompone
             className="inline-flex items-center justify-center align-super text-[10px] font-medium mx-0.5 px-1.5 py-0.5 rounded-full bg-accent/15 text-accent hover:bg-accent/25 no-underline"
             {...rest}
           >
-            {text.replace(/[\[\]]/g, "") as ReactNode}
+            {text.replace(/[[\]]/g, "") as ReactNode}
           </a>
         );
       }

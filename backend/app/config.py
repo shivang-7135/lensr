@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     backend_shared_secret: str = ""
     cors_allow_origin: str = "http://localhost:3000"
 
+    # Semantic cache settings
+    cache_enabled: bool = True
+    cache_similarity_threshold: float = 0.88
+    cache_ttl_hours: int = 24
+
 
 settings = Settings()
 

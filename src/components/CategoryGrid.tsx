@@ -8,7 +8,9 @@ export function CategoryGrid() {
       <div className="flex items-end justify-between mb-5 fade-up">
         <div>
           <h2 className="font-display text-2xl sm:text-3xl tracking-tight">Try asking…</h2>
-          <p className="text-sm text-muted-foreground">Twenty things Lensr is good at. Tap one to see it in action.</p>
+          <p className="text-sm text-muted-foreground">
+            Twenty things Lensr is good at. Tap one to see it in action.
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">

@@ -31,18 +31,28 @@ function SavedPage() {
         {items && items.length === 0 && (
           <div className="border-2 border-dashed border-border rounded-xl p-8 text-center">
             <p className="text-muted-foreground mb-4">Nothing saved yet.</p>
-            <Link to="/" className="underline decoration-accent underline-offset-4">Run a search →</Link>
+            <Link to="/" className="underline decoration-accent underline-offset-4">
+              Run a search →
+            </Link>
           </div>
         )}
         <ul className="space-y-3">
           {items?.map((s) => (
             <li key={s.id}>
-              <Link to="/results" search={{ q: s.query }} className="block border border-border rounded-lg p-4 hover:border-foreground/40 transition bg-card">
+              <Link
+                to="/results"
+                search={{ q: s.query }}
+                className="block border border-border rounded-lg p-4 hover:border-foreground/40 transition bg-card"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-medium truncate">{s.query}</span>
-                  <span className="text-xs uppercase tracking-widest text-muted-foreground">{s.intent}</span>
+                  <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                    {s.intent}
+                  </span>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">{new Date(s.created_at).toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {new Date(s.created_at).toLocaleString()}
+                </div>
               </Link>
             </li>
           ))}

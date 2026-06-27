@@ -1,29 +1,93 @@
 """Top-level router: classify intent, dispatch to the adaptive per-intent pipeline."""
+
 from __future__ import annotations
-from typing import AsyncIterator, Literal
+
+import asyncio
 import json
+import logging
+from collections.abc import AsyncIterator
+from typing import Literal
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from .llm import router_llm
+from .tools.cache import cache_lookup, cache_store
+
+logger = logging.getLogger(__name__)
 from .agents import (
-    shopping, price_history, trip, insta, general,
-    movies, recipes, books, places, events,
-    tech, health, finance, news, sports,
-    howto, learning, jobs, local, comparison,
-    gift, legal, gaming, diy, fitness,
-    pets, music, productivity, weather, real_estate,
-    automotive, food, fashion, parenting, dating,
+    automotive,
+    books,
+    comparison,
+    dating,
+    diy,
+    events,
+    fashion,
+    finance,
+    fitness,
+    food,
+    gaming,
+    general,
+    gift,
+    health,
+    howto,
+    insta,
+    jobs,
+    learning,
+    legal,
+    local,
+    movies,
+    music,
+    news,
+    parenting,
+    pets,
+    places,
+    price_history,
+    productivity,
+    real_estate,
+    recipes,
+    shopping,
+    sports,
+    tech,
+    trip,
+    weather,
 )
 
 Intent = Literal[
-    "shopping", "price_history", "trip", "insta", "general",
-    "movies", "recipes", "books", "places", "events",
-    "tech", "health", "finance", "news", "sports",
-    "howto", "learning", "jobs", "local", "comparison",
-    "gift", "legal", "gaming", "diy", "fitness",
-    "pets", "music", "productivity", "weather", "real_estate",
-    "automotive", "food", "fashion", "parenting", "dating",
+    "shopping",
+    "price_history",
+    "trip",
+    "insta",
+    "general",
+    "movies",
+    "recipes",
+    "books",
+    "places",
+    "events",
+    "tech",
+    "health",
+    "finance",
+    "news",
+    "sports",
+    "howto",
+    "learning",
+    "jobs",
+    "local",
+    "comparison",
+    "gift",
+    "legal",
+    "gaming",
+    "diy",
+    "fitness",
+    "pets",
+    "music",
+    "productivity",
+    "weather",
+    "real_estate",
+    "automotive",
+    "food",
+    "fashion",
+    "parenting",
+    "dating",
 ]
 
 CLASSIFY_SYS = """Classify the user's search query into exactly one intent.
@@ -137,8 +201,10 @@ DISPATCH = {
 
 async def _classify(query: str) -> Intent:
     msg = await router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)])
-    raw = msg.content if isinstance(msg.content, str) else "".join(
-        p.get("text", "") if isinstance(p, dict) else str(p) for p in msg.content
+    raw = (
+        msg.content
+        if isinstance(msg.content, str)
+        else "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in msg.content)
     )
     raw = raw.strip()
     if raw.startswith("```"):
@@ -153,7 +219,58 @@ async def _classify(query: str) -> Intent:
 
 
 async def run_stream(query: str) -> AsyncIterator[dict]:
+    # --- Semantic cache check (instant response if hit) ---
+    try:
+        cached = await cache_lookup(query)
+    except Exception:
+        cached = None
+
+    if cached:
+        # Cache hit! Skip entire pipeline — return instantly
+        intent = cached["intent"]
+        yield {"type": "intent_detected", "intent": intent}
+        yield {"type": "cache_hit", "cached": True}
+        # Stream the tldr as partial_answer for progressive UI
+        tldr = cached["structured"].get("tldr") or ""
+        if tldr:
+            yield {"type": "partial_answer", "delta": tldr + "\n\n"}
+        yield {
+            "type": "final",
+            "intent": intent,
+            "structured": cached["structured"],
+            "markdown": cached["markdown"] or tldr,
+            "sources": cached["sources"],
+            "cached": True,
+        }
+        return
+
+    # --- Cache miss: full pipeline ---
     intent = await _classify(query)
     yield {"type": "intent_detected", "intent": intent}
+
+    # Collect the final result for caching
+    final_event = None
     async for evt in DISPATCH[intent](query):
+        if evt.get("type") == "final":
+            final_event = evt
         yield evt
+
+    # Store result in cache (fire-and-forget, non-blocking)
+    if final_event and final_event.get("structured"):
+        asyncio.create_task(
+            _store_in_cache(
+                query=query,
+                intent=intent,
+                structured=final_event["structured"],
+                markdown=final_event.get("markdown", ""),
+                sources=final_event.get("sources", []),
+            )
+        )
+
+
+async def _store_in_cache(query: str, intent: str, structured: dict, markdown: str, sources: list) -> None:
+    """Background task to store pipeline results in cache."""
+    try:
+        await cache_store(query, intent, structured, markdown, sources)
+    except Exception as e:
+        logger.warning("Background cache store failed: %s", e)

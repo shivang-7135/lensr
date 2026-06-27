@@ -1,10 +1,13 @@
 """Instagram caption + place recommendations with optional image vision."""
+
 from __future__ import annotations
+
 import re
-import json
+
 from langchain_core.messages import HumanMessage, SystemMessage
-from ._pipeline import IntentConfig, run_pipeline, _text, _parse_json
+
 from ..llm import vision_llm
+from ._pipeline import IntentConfig, _parse_json, _text, run_pipeline
 
 URL_RE = re.compile(r"https?://\S+")
 
@@ -34,13 +37,17 @@ CONFIG = IntentConfig(
 
 
 async def _vision_extract(image_url: str) -> dict:
-    msg = await vision_llm().ainvoke([
-        SystemMessage(VISION_SYS),
-        HumanMessage(content=[
-            {"type": "text", "text": "Analyze this image:"},
-            {"type": "image_url", "image_url": {"url": image_url}},
-        ]),
-    ])
+    msg = await vision_llm().ainvoke(
+        [
+            SystemMessage(VISION_SYS),
+            HumanMessage(
+                content=[
+                    {"type": "text", "text": "Analyze this image:"},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ]
+            ),
+        ]
+    )
     return _parse_json(_text(msg)) or {}
 
 
@@ -55,8 +62,8 @@ async def run_stream(query: str):
         scene_text = scene_data.get("scene") or query
         # Append search_queries as hints by prepending into query
         enriched_query = (
-            f"{scene_text}\nMood: {scene_data.get('mood','')}\n"
-            f"Place type: {scene_data.get('place_type','')}\n"
+            f"{scene_text}\nMood: {scene_data.get('mood', '')}\n"
+            f"Place type: {scene_data.get('place_type', '')}\n"
             f"Hints: {', '.join(scene_data.get('search_queries', []))}"
         )
         async for evt in run_pipeline(enriched_query, CONFIG):

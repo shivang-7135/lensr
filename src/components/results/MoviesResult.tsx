@@ -21,7 +21,9 @@ export function MoviesResult({ data }: { data: MoviesStructured }) {
       {!!data.picks?.length && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.picks.map((m, i) => {
-            const isTop = data.recommendation && m.title.toLowerCase().includes(data.recommendation.toLowerCase());
+            const isTop =
+              data.recommendation &&
+              m.title.toLowerCase().includes(data.recommendation.toLowerCase());
             return (
               <article
                 key={i}
@@ -76,7 +78,11 @@ export function MoviesResult({ data }: { data: MoviesStructured }) {
                       ) : (
                         m.title
                       )}
-                      {m.year && <span className="text-muted-foreground font-normal text-sm ml-1">({m.year})</span>}
+                      {m.year && (
+                        <span className="text-muted-foreground font-normal text-sm ml-1">
+                          ({m.year})
+                        </span>
+                      )}
                     </h3>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
                       {m.genre && <span>{m.genre}</span>}

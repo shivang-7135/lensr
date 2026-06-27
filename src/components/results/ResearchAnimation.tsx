@@ -11,12 +11,12 @@ interface Blob {
 }
 
 const COLORS = [
-  "oklch(0.7 0.25 270)",  // Purple
-  "oklch(0.75 0.2 200)",  // Cyan
-  "oklch(0.7 0.22 320)",  // Magenta
+  "oklch(0.7 0.25 270)", // Purple
+  "oklch(0.75 0.2 200)", // Cyan
+  "oklch(0.7 0.22 320)", // Magenta
   "oklch(0.75 0.18 165)", // Teal
-  "oklch(0.7 0.2 248)",   // Blue
-  "oklch(0.75 0.22 30)",  // Orange
+  "oklch(0.7 0.2 248)", // Blue
+  "oklch(0.75 0.22 30)", // Orange
 ];
 
 function generateBlobs(count: number): Blob[] {
@@ -66,10 +66,10 @@ export function ResearchAnimation({ active }: { active: boolean }) {
           }}
         />
       ))}
-      
+
       {/* Central pulsing glow */}
       <div className="research-pulse" />
-      
+
       {/* Shimmer overlay */}
       <div className="research-shimmer" />
     </div>

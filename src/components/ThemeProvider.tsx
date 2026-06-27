@@ -19,7 +19,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.toggle("dark", theme === "dark");
     root.style.colorScheme = theme;
-    try { localStorage.setItem("lensr-theme", theme); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("lensr-theme", theme);
+    } catch {
+      /* ignore */
+    }
   }, [theme]);
 
   const setTheme = (t: Theme) => setThemeState(t);

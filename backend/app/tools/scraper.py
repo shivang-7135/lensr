@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import ipaddress
 import logging
 from urllib.parse import urlparse
@@ -33,16 +34,14 @@ def _is_private_url(url: str) -> bool:
             # It's a hostname, not an IP — allow (DNS resolution happens at request time)
             pass
         # Block cloud metadata hostnames
-        if hostname in ("metadata.google.internal", "metadata.internal"):
-            return True
-        return False
+        return hostname in ("metadata.google.internal", "metadata.internal")
     except Exception:
         return True  # Block on any parsing error
 
 
 async def fetch_clean(url: str) -> str | None:
     """Fetch and extract main text content from a URL.
-    
+
     Includes SSRF protection and response size limiting.
     """
     if _is_private_url(url):

@@ -1,4 +1,5 @@
 from langchain_aws import ChatBedrockConverse
+
 from .config import settings
 
 # Default timeout for LLM requests (seconds)

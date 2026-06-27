@@ -20,7 +20,9 @@ export const Route = createFileRoute("/results")({
       <div>
         <p className="text-destructive font-medium mb-2">Something went wrong.</p>
         <p className="text-sm text-muted-foreground mb-4">{error.message}</p>
-        <Link to="/" className="underline">Back home</Link>
+        <Link to="/" className="underline">
+          Back home
+        </Link>
       </div>
     </div>
   ),
@@ -36,7 +38,9 @@ function ResultsPage() {
         <div className="mb-8">
           <SearchBar initial={q} />
         </div>
-        {q ? <ResultsStream key={q} query={q} /> : (
+        {q ? (
+          <ResultsStream key={q} query={q} />
+        ) : (
           <p className="text-muted-foreground">Type a query above to start.</p>
         )}
       </main>

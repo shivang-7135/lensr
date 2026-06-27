@@ -1,16 +1,18 @@
 """FastAPI entrypoint with SSE streaming."""
+
 from __future__ import annotations
+
 import hmac
 import json
 import logging
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .config import settings

@@ -44,7 +44,11 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "SIM", "N"]
-ignore = ["E501"]  # Line length handled by formatter
+ignore = [
+    "E501",   # Line length handled by formatter
+    "E402",   # Module-level imports (intentional: logger before imports)
+    "B905",   # zip() without strict= (not needed for same-length iterables)
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

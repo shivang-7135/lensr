@@ -20,5 +20,6 @@ CONFIG = IntentConfig(
 
 async def run_stream(query: str):
     from ._pipeline import run_pipeline
+
     async for evt in run_pipeline(query, CONFIG):
         yield evt

@@ -44,7 +44,10 @@ export function SearchBar({ initial = "" }: { initial?: string }) {
             type="button"
             onClick={() => {
               if (c.q.startsWith("/")) navigate({ to: c.q });
-              else { setQ(c.q); navigate({ to: "/results", search: { q: c.q } }); }
+              else {
+                setQ(c.q);
+                navigate({ to: "/results", search: { q: c.q } });
+              }
             }}
             className="text-xs px-3 py-1.5 rounded-full glass-soft hover:border-accent/50 hover:text-accent transition-colors"
           >

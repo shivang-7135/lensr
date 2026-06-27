@@ -35,9 +35,16 @@ export type SearchIntent =
   | "dating"
   | "general";
 
-export interface Source { title: string; url: string; image_url?: string }
+export interface Source {
+  title: string;
+  url: string;
+  image_url?: string;
+}
 
-export interface RelatedLink { label: string; url: string }
+export interface RelatedLink {
+  label: string;
+  url: string;
+}
 
 // --- Structured payloads per intent (mirror backend schema_hint) ---
 
@@ -59,7 +66,11 @@ export interface ShoppingStructured {
   detail_markdown?: string;
 }
 
-export interface PricePoint { date: string; price: number; label?: string }
+export interface PricePoint {
+  date: string;
+  price: number;
+  label?: string;
+}
 export interface PriceHistoryStructured {
   tldr: string;
   typical_price_range?: string;
@@ -97,7 +108,11 @@ export interface TripStructured {
   detail_markdown?: string;
 }
 
-export interface InstaCaption { style: string; text: string; hashtag_count?: number }
+export interface InstaCaption {
+  style: string;
+  text: string;
+  hashtag_count?: number;
+}
 export interface InstaStructured {
   tldr: string;
   scene?: string;
@@ -235,14 +250,33 @@ export type StructuredResult =
 
 export type StreamEvent =
   | { type: "intent_detected"; intent: SearchIntent }
+  | { type: "cache_hit"; cached: boolean }
   | { type: "stage"; stage: string }
-  | { type: "keywords_extracted"; keywords: { keywords?: string[]; entities?: string[]; constraints?: string[]; intent_summary?: string } }
+  | {
+      type: "keywords_extracted";
+      keywords: {
+        keywords?: string[];
+        entities?: string[];
+        constraints?: string[];
+        intent_summary?: string;
+      };
+    }
   | { type: "search_plan"; queries: string[] }
   | { type: "tool_call"; tool: string; input: string }
   | { type: "search_results"; loop: number; count: number; sample: Source[] }
   | { type: "scrape_progress"; count: number }
   | { type: "reflection"; loop: number; done: boolean; missing: string; followup_queries: string[] }
-  | { type: "vision_result"; scene: { scene?: string; mood?: string; objects?: string[]; place_type?: string } }
+  | {
+      type: "vision_result";
+      scene: { scene?: string; mood?: string; objects?: string[]; place_type?: string };
+    }
   | { type: "partial_answer"; delta: string }
-  | { type: "final"; intent: SearchIntent; structured?: Record<string, unknown>; markdown: string; sources: Source[] }
+  | {
+      type: "final";
+      intent: SearchIntent;
+      structured?: Record<string, unknown>;
+      markdown: string;
+      sources: Source[];
+      cached?: boolean;
+    }
   | { type: "error"; message: string };

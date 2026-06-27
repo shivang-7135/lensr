@@ -40,7 +40,9 @@ export function ResearchPanel({ events, done }: { events: StreamEvent[]; done: b
             </span>
           )}
         </div>
-        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && (
         <div className="px-4 pb-4 pt-1 border-t border-white/10">

@@ -1,5 +1,7 @@
 """Serper.dev wrapper — real Google SERPs as JSON."""
+
 from __future__ import annotations
+
 import logging
 
 import httpx
@@ -34,7 +36,4 @@ async def google_search(query: str, num: int = 5) -> list[dict]:
         return []
 
     organic = data.get("organic", [])
-    return [
-        {"title": it.get("title"), "link": it.get("link"), "snippet": it.get("snippet")}
-        for it in organic[:num]
-    ]
+    return [{"title": it.get("title"), "link": it.get("link"), "snippet": it.get("snippet")} for it in organic[:num]]

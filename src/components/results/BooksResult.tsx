@@ -21,7 +21,9 @@ export function BooksResult({ data }: { data: BooksStructured }) {
       {!!data.picks?.length && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.picks.map((b, i) => {
-            const isTop = data.recommendation && b.title.toLowerCase().includes(data.recommendation.toLowerCase());
+            const isTop =
+              data.recommendation &&
+              b.title.toLowerCase().includes(data.recommendation.toLowerCase());
             return (
               <article
                 key={i}
@@ -29,7 +31,13 @@ export function BooksResult({ data }: { data: BooksStructured }) {
                 style={{ animationDelay: `${i * 50}ms` }}
               >
                 <div className="relative aspect-[2/3] bg-white/5 overflow-hidden">
-                  <SafeImage src={b.cover_url} alt={`${b.title} cover`} className="w-full h-full object-cover" fallbackClassName="w-full h-full" zoomable />
+                  <SafeImage
+                    src={b.cover_url}
+                    alt={`${b.title} cover`}
+                    className="w-full h-full object-cover"
+                    fallbackClassName="w-full h-full"
+                    zoomable
+                  />
                   {b.rating && (
                     <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full glass-strong">
                       <Star className="h-3 w-3 text-accent fill-accent" /> {b.rating}
@@ -45,29 +53,51 @@ export function BooksResult({ data }: { data: BooksStructured }) {
                   <div>
                     <h3 className="font-display font-semibold leading-tight">
                       {b.goodreads_url ? (
-                        <a href={b.goodreads_url} target="_blank" rel="noreferrer" className="hover:text-accent transition-colors inline-flex items-center gap-1">
+                        <a
+                          href={b.goodreads_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="hover:text-accent transition-colors inline-flex items-center gap-1"
+                        >
                           {b.title} <ExternalLink className="h-3 w-3 opacity-60" />
                         </a>
-                      ) : b.title}
+                      ) : (
+                        b.title
+                      )}
                     </h3>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {b.author}{b.year ? ` · ${b.year}` : ""}
+                      {b.author}
+                      {b.year ? ` · ${b.year}` : ""}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
                       {b.genre && <span>{b.genre}</span>}
                       {b.pages && <span>{b.pages} pages</span>}
                     </div>
                   </div>
-                  {b.why_recommended && <p className="text-sm leading-relaxed">{b.why_recommended}</p>}
-                  {b.synopsis && <p className="text-xs text-muted-foreground line-clamp-3">{b.synopsis}</p>}
+                  {b.why_recommended && (
+                    <p className="text-sm leading-relaxed">{b.why_recommended}</p>
+                  )}
+                  {b.synopsis && (
+                    <p className="text-xs text-muted-foreground line-clamp-3">{b.synopsis}</p>
+                  )}
                   <div className="mt-auto flex gap-2 pt-2">
                     {b.buy_url && (
-                      <a href={b.buy_url} target="_blank" rel="noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold py-2 px-3 rounded-full glass-strong glass-hover hover:bg-accent hover:text-accent-foreground transition">
+                      <a
+                        href={b.buy_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold py-2 px-3 rounded-full glass-strong glass-hover hover:bg-accent hover:text-accent-foreground transition"
+                      >
                         <ShoppingCart className="h-3 w-3" /> Buy
                       </a>
                     )}
                     {b.goodreads_url && (
-                      <a href={b.goodreads_url} target="_blank" rel="noreferrer" className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold py-2 px-3 rounded-full glass-soft glass-hover transition">
+                      <a
+                        href={b.goodreads_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold py-2 px-3 rounded-full glass-soft glass-hover transition"
+                      >
                         Reviews
                       </a>
                     )}

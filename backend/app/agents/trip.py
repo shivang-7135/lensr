@@ -14,11 +14,18 @@ CONFIG = IntentConfig(
         '"detail_markdown": "string"}'
     ),
     plan_hint="Mix queries for: top things to do, best neighborhoods, transport, food, best time to visit, sample itineraries.",
-    seed_queries=lambda q: [f"things to do {q}", f"{q} best neighborhoods", f"{q} itinerary 3 days", f"best time to visit {q}", f"{q} local food"],
+    seed_queries=lambda q: [
+        f"things to do {q}",
+        f"{q} best neighborhoods",
+        f"{q} itinerary 3 days",
+        f"best time to visit {q}",
+        f"{q} local food",
+    ],
 )
 
 
 async def run_stream(query: str):
     from ._pipeline import run_pipeline
+
     async for evt in run_pipeline(query, CONFIG):
         yield evt

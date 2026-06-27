@@ -1,7 +1,11 @@
 import type { Source } from "@/lib/search/types";
 
 function domainOf(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }
 
 export function SourcesGrid({ sources }: { sources: Source[] }) {
@@ -27,7 +31,9 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
                   loading="lazy"
                 />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-accent transition-colors">{s.title}</div>
+                  <div className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-accent transition-colors">
+                    {s.title}
+                  </div>
                   <div className="text-xs text-muted-foreground truncate">{d}</div>
                 </div>
               </a>

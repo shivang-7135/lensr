@@ -6,19 +6,21 @@ JSON answer matching the intent schema.
 
 Per-intent agents only supply: system prompt + JSON schema + search-plan hints.
 """
+
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable
+from datetime import UTC, datetime
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..llm import reasoning_llm, router_llm
-from ..tools.serper import google_search
 from ..tools.scraper import fetch_clean
+from ..tools.serper import google_search
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +32,9 @@ SCRAPE_TOP_N = 3
 @dataclass
 class IntentConfig:
     name: str
-    system_prompt: str          # describes how to write the final answer
-    schema_hint: str            # JSON schema description for synthesis
-    plan_hint: str              # extra guidance for the search-planner LLM
+    system_prompt: str  # describes how to write the final answer
+    schema_hint: str  # JSON schema description for synthesis
+    plan_hint: str  # extra guidance for the search-planner LLM
     seed_queries: Callable[[str], list[str]]  # cheap deterministic queries to seed loop 1
 
 
@@ -44,6 +46,7 @@ async def _emit(emit: EventEmitter, evt: dict) -> None:
 
 
 # ---------- LLM helpers ----------
+
 
 def _text(msg) -> str:
     c = msg.content
@@ -75,7 +78,7 @@ def _parse_json(raw: str) -> dict | None:
 
 
 def _today_str() -> str:
-    return datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+    return datetime.now(UTC).strftime("%A, %B %d, %Y")
 
 
 DATE_PREAMBLE = (
@@ -183,7 +186,7 @@ async def _fanout_search(queries: list[str]) -> list[dict]:
     results = await asyncio.gather(*[google_search(q, num=3) for q in queries], return_exceptions=True)
     merged: list[dict] = []
     seen = set()
-    for q, res in zip(queries, results):
+    for q, res in zip(queries, results, strict=False):
         if isinstance(res, Exception):
             logger.warning("Search failed for query '%s': %s", q, res)
             continue
@@ -194,12 +197,14 @@ async def _fanout_search(queries: list[str]) -> list[dict]:
             if not link or link in seen:
                 continue
             seen.add(link)
-            merged.append({
-                "title": r.get("title") or link,
-                "url": link,
-                "snippet": r.get("snippet") or "",
-                "via_query": q,
-            })
+            merged.append(
+                {
+                    "title": r.get("title") or link,
+                    "url": link,
+                    "snippet": r.get("snippet") or "",
+                    "via_query": q,
+                }
+            )
     if not merged:
         logger.warning("_fanout_search returned 0 results for %d queries", len(queries))
     return merged
@@ -209,7 +214,7 @@ async def _scrape(sources: list[dict], limit: int) -> list[dict]:
     targets = sources[:limit]
     bodies = await asyncio.gather(*[fetch_clean(s["url"]) for s in targets], return_exceptions=True)
     enriched = []
-    for s, body in zip(targets, bodies):
+    for s, body in zip(targets, bodies, strict=False):
         if isinstance(body, Exception):
             logger.warning("Scrape failed for %s: %s", s["url"], body)
             text = None
@@ -224,7 +229,7 @@ async def _scrape(sources: list[dict], limit: int) -> list[dict]:
 
 async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
     summary = "\n\n".join(
-        f"[{i+1}] {e['title']}\n{e['url']}\nsnippet: {e['snippet']}\nexcerpt: {e.get('body','')[:600]}"
+        f"[{i + 1}] {e['title']}\n{e['url']}\nsnippet: {e['snippet']}\nexcerpt: {e.get('body', '')[:600]}"
         for i, e in enumerate(evidence[:8])
     )
     user = f"User query: {query}\n\nLoop: {loop}\n\nEvidence so far:\n{summary}"
@@ -234,24 +239,40 @@ async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
 async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentConfig) -> dict:
     # Limit evidence to avoid context overflow - use only top 6 for speed
     limited_evidence = evidence[:6]
-    
+
     # Build concise context - shorter snippets for faster processing
     context_parts = []
     for i, e in enumerate(limited_evidence):
-        snippet = e.get('snippet', '')[:150]
-        body = e.get('body', '')[:600]
-        context_parts.append(f"[{i+1}] {e['title']}\n{snippet}\n{body}")
+        snippet = e.get("snippet", "")[:150]
+        body = e.get("body", "")[:600]
+        context_parts.append(f"[{i + 1}] {e['title']}\n{snippet}\n{body}")
     context = "\n\n".join(context_parts)
-    
+
     # Intents needing rich structured output use the reasoning model (Sonnet)
     # Other intents can use the faster router model (Haiku)
     needs_rich_schema = cfg.name in (
-        "shopping", "trip", "price_history", "insta",
-        "movies", "recipes", "books", "places", "events",
-        "tech", "health", "finance", "jobs", "comparison",
-        "gift", "gaming", "fitness", "real_estate", "automotive", "food",
+        "shopping",
+        "trip",
+        "price_history",
+        "insta",
+        "movies",
+        "recipes",
+        "books",
+        "places",
+        "events",
+        "tech",
+        "health",
+        "finance",
+        "jobs",
+        "comparison",
+        "gift",
+        "gaming",
+        "fitness",
+        "real_estate",
+        "automotive",
+        "food",
     )
-    
+
     sys = (
         "You are a helpful research assistant. Synthesize the web evidence into a clear, actionable answer.\n\n"
         f"{cfg.system_prompt}\n\n"
@@ -262,24 +283,20 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         "- Be specific with product names, prices, pros/cons\n"
         "- Cite sources using [n] format"
     )
-    
-    user = (
-        f"Query: {query}\n"
-        f"Key terms: {', '.join(kw.get('keywords', []))}\n\n"
-        f"Evidence:\n{context}"
-    )
-    
+
+    user = f"Query: {query}\nKey terms: {', '.join(kw.get('keywords', []))}\n\nEvidence:\n{context}"
+
     # Use reasoning model (Sonnet) for complex schemas, router (Haiku) for simple ones
     data = await _llm_json(sys, user, use_router=not needs_rich_schema)
-    
+
     if not data or not data.get("tldr"):
         # Smart fallback: extract useful info from evidence
         top_sources = limited_evidence[:4]
-        
+
         # Create a meaningful summary from snippets
         snippets = [e.get("snippet", "") for e in top_sources if e.get("snippet")]
         combined = " ".join(snippets)[:400]
-        
+
         # Extract any items that look like recommendations
         items = []
         for e in top_sources:
@@ -288,33 +305,31 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
             # Look for patterns like "1. X" or "- X" or "X by Y"
             if title:
                 items.append(f"**{title}**: {snippet[:100]}...")
-        
+
         data = {
-            "tldr": f"Based on search results: {combined[:200]}..." if combined else f"Here's what I found about '{query}'",
-            "key_facts": [
-                snippet[:150] for snippet in snippets[:5] if snippet
-            ] if snippets else [],
-            "detail_markdown": (
-                f"## What I Found\n\n" +
-                "\n".join(f"- {item}" for item in items[:6])
-            ) if items else ""
+            "tldr": f"Based on search results: {combined[:200]}..."
+            if combined
+            else f"Here's what I found about '{query}'",
+            "key_facts": [snippet[:150] for snippet in snippets[:5] if snippet] if snippets else [],
+            "detail_markdown": ("## What I Found\n\n" + "\n".join(f"- {item}" for item in items[:6])) if items else "",
         }
-    
+
     return data
 
 
 # ---------- orchestrator ----------
 
+
 async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     """Yield SSE-shaped events for the adaptive pipeline.
-    
+
     Optimized flow:
     1. Fire seed queries immediately (no LLM wait)
     2. In parallel: run combined keyword+plan LLM call
     3. Merge seed results with LLM-planned results
     4. Scrape top pages
     5. Synthesize answer
-    
+
     This eliminates 1-2 sequential LLM calls (~3s saved).
     """
     # Start seed search immediately — no LLM round-trip needed

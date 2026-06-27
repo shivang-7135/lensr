@@ -3,7 +3,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChevronDown } from "lucide-react";
 
-export function DetailDisclosure({ markdown, label = "Show full analysis" }: { markdown?: string; label?: string }) {
+export function DetailDisclosure({
+  markdown,
+  label = "Show full analysis",
+}: {
+  markdown?: string;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   if (!markdown) return null;
   return (

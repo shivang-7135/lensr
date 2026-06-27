@@ -10,15 +10,15 @@ import { SafeImage } from "./SafeImage";
 function parseMarkdownSections(md: string): { heading: string; content: string }[] {
   if (!md) return [];
   const sections: { heading: string; content: string }[] = [];
-  const lines = md.split('\n');
-  let currentHeading = '';
+  const lines = md.split("\n");
+  let currentHeading = "";
   let currentContent: string[] = [];
 
   for (const line of lines) {
     const headingMatch = line.match(/^#{1,3}\s+(.+)/);
     if (headingMatch) {
       if (currentHeading || currentContent.length) {
-        sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
+        sections.push({ heading: currentHeading, content: currentContent.join("\n").trim() });
       }
       currentHeading = headingMatch[1];
       currentContent = [];
@@ -27,17 +27,22 @@ function parseMarkdownSections(md: string): { heading: string; content: string }
     }
   }
   if (currentHeading || currentContent.length) {
-    sections.push({ heading: currentHeading, content: currentContent.join('\n').trim() });
+    sections.push({ heading: currentHeading, content: currentContent.join("\n").trim() });
   }
-  return sections.filter(s => s.content || s.heading);
+  return sections.filter((s) => s.content || s.heading);
 }
 
 // Extract bullet items from content
 function extractItems(content: string): string[] {
   return content
-    .split('\n')
-    .filter(l => l.match(/^[-*•]\s+\*?\*?/))
-    .map(l => l.replace(/^[-*•]\s+/, '').replace(/\*\*/g, '').trim())
+    .split("\n")
+    .filter((l) => l.match(/^[-*•]\s+\*?\*?/))
+    .map((l) =>
+      l
+        .replace(/^[-*•]\s+/, "")
+        .replace(/\*\*/g, "")
+        .trim(),
+    )
     .filter(Boolean)
     .slice(0, 8);
 }
@@ -49,9 +54,11 @@ export function GeneralResult({
   data: GeneralStructured;
   sources?: { title: string; url: string }[];
 }) {
-  const factComponents = citationMarkdownComponents(sources) as ComponentPropsWithoutRef<typeof ReactMarkdown>["components"];
-  const sections = parseMarkdownSections(data.detail_markdown ?? '');
-  
+  const factComponents = citationMarkdownComponents(sources) as ComponentPropsWithoutRef<
+    typeof ReactMarkdown
+  >["components"];
+  const sections = parseMarkdownSections(data.detail_markdown ?? "");
+
   // Check if we have structured content or just raw markdown
   const hasStructuredContent = data.tldr || data.key_facts?.length;
 
@@ -59,10 +66,15 @@ export function GeneralResult({
     <div className="space-y-5">
       {data.hero_image_url && (
         <div className="glass overflow-hidden aspect-[21/9] p-0">
-          <SafeImage src={data.hero_image_url} alt="" className="w-full h-full object-cover" fallbackClassName="w-full h-full" />
+          <SafeImage
+            src={data.hero_image_url}
+            alt=""
+            className="w-full h-full object-cover"
+            fallbackClassName="w-full h-full"
+          />
         </div>
       )}
-      
+
       {/* TL;DR Summary Card */}
       {data.tldr && (
         <div className="p-5 glass-strong border-l-2 border-accent">
@@ -81,7 +93,10 @@ export function GeneralResult({
           </h2>
           <div className="grid gap-2">
             {data.key_facts.slice(0, 6).map((f, i) => (
-              <div key={i} className="glass p-3 flex gap-3 items-start hover:border-accent/30 transition-colors">
+              <div
+                key={i}
+                className="glass p-3 flex gap-3 items-start hover:border-accent/30 transition-colors"
+              >
                 <span className="text-accent font-mono text-sm shrink-0">{i + 1}</span>
                 <span className="text-sm leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
@@ -95,15 +110,15 @@ export function GeneralResult({
       )}
 
       {/* Parsed Sections - Only if we have meaningful sections */}
-      {sections.length > 0 && sections.some(s => s.heading) && (
+      {sections.length > 0 && sections.some((s) => s.heading) && (
         <div className="space-y-4">
           {sections.map((section, i) => {
             const items = extractItems(section.content);
             const hasItems = items.length > 0;
-            const plainContent = section.content.replace(/^[-*•]\s+.+\n?/gm, '').trim();
-            
+            const plainContent = section.content.replace(/^[-*•]\s+.+\n?/gm, "").trim();
+
             if (!section.heading && !hasItems && !plainContent) return null;
-            
+
             return (
               <div key={i} className="glass p-4 space-y-3">
                 {section.heading && (
@@ -123,7 +138,9 @@ export function GeneralResult({
                   </ul>
                 )}
                 {plainContent && !hasItems && (
-                  <p className="text-sm leading-relaxed text-muted-foreground">{plainContent.slice(0, 300)}</p>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {plainContent.slice(0, 300)}
+                  </p>
                 )}
               </div>
             );
@@ -132,7 +149,7 @@ export function GeneralResult({
       )}
 
       {/* Fallback: If no structured content, show clean formatted markdown */}
-      {!hasStructuredContent && !sections.some(s => s.heading) && data.detail_markdown && (
+      {!hasStructuredContent && !sections.some((s) => s.heading) && data.detail_markdown && (
         <article className="glass p-5 prose prose-invert prose-sm max-w-none prose-headings:font-display prose-p:leading-relaxed prose-a:text-accent prose-strong:text-foreground prose-li:my-0.5">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
             {linkifyCitations(data.detail_markdown, sources)}
@@ -144,8 +161,13 @@ export function GeneralResult({
       {!!data.related_links?.length && (
         <div className="flex flex-wrap gap-2 pt-2">
           {data.related_links.map((l, i) => (
-            <a key={i} href={l.url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full glass-soft hover:border-accent/60 hover:text-accent transition">
+            <a
+              key={i}
+              href={l.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full glass-soft hover:border-accent/60 hover:text-accent transition"
+            >
               {l.label} <ExternalLink className="h-3 w-3 opacity-70" />
             </a>
           ))}

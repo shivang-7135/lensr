@@ -49,14 +49,16 @@ export const REQUIRED_KEYS: RequiredKey[] = [
     name: "BEDROCK_MODEL_ROUTER",
     required: true,
     group: "Bedrock Models",
-    description: "Fast Bedrock model id used for intent classification (e.g. anthropic.claude-3-haiku-20240307-v1:0).",
+    description:
+      "Fast Bedrock model id used for intent classification (e.g. anthropic.claude-3-haiku-20240307-v1:0).",
     usedBy: ["router_graph"],
   },
   {
     name: "BEDROCK_MODEL_REASONING",
     required: true,
     group: "Bedrock Models",
-    description: "Reasoning model id used by shopping / price / trip agents (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0).",
+    description:
+      "Reasoning model id used by shopping / price / trip agents (e.g. anthropic.claude-3-5-sonnet-20241022-v2:0).",
     usedBy: ["shopping", "price_history", "trip", "general"],
   },
   {
@@ -70,7 +72,8 @@ export const REQUIRED_KEYS: RequiredKey[] = [
     name: "BACKEND_BASE_URL",
     required: false,
     group: "Backend",
-    description: "Override for the FastAPI LangGraph service URL. Set as a server environment variable.",
+    description:
+      "Override for the FastAPI LangGraph service URL. Set as a server environment variable.",
     usedBy: ["api/search proxy"],
   },
 ];

@@ -10,7 +10,15 @@ const ICONS: Record<string, typeof Search> = {
 
 export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: boolean }) {
   const items = events.filter((e) =>
-    ["stage", "keywords_extracted", "search_plan", "search_results", "scrape_progress", "reflection", "vision_result"].includes(e.type),
+    [
+      "stage",
+      "keywords_extracted",
+      "search_plan",
+      "search_results",
+      "scrape_progress",
+      "reflection",
+      "vision_result",
+    ].includes(e.type),
   );
 
   if (!items.length) {
@@ -27,12 +35,17 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
         if (e.type === "stage") {
           const Icon = ICONS[e.stage] ?? (e.stage.startsWith("search_loop") ? Search : Globe);
           const label =
-            e.stage === "extract_keywords" ? "Extracting keywords" :
-            e.stage === "plan" ? "Planning search queries" :
-            e.stage === "vision" ? "Analyzing image" :
-            e.stage === "synthesize" ? "Synthesizing answer" :
-            e.stage.startsWith("search_loop") ? `Search pass ${e.stage.split("_").pop()}` :
-            e.stage;
+            e.stage === "extract_keywords"
+              ? "Extracting keywords"
+              : e.stage === "plan"
+                ? "Planning search queries"
+                : e.stage === "vision"
+                  ? "Analyzing image"
+                  : e.stage === "synthesize"
+                    ? "Synthesizing answer"
+                    : e.stage.startsWith("search_loop")
+                      ? `Search pass ${e.stage.split("_").pop()}`
+                      : e.stage;
           return (
             <li key={i} className="flex items-center gap-2 font-medium">
               <Icon className="h-4 w-4 text-accent" /> {label}
@@ -45,10 +58,16 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
             <li key={i} className="border-l-2 border-accent pl-3 ml-2 space-y-1">
               <div className="text-xs text-muted-foreground">Keywords</div>
               <div className="flex flex-wrap gap-1">
-                {kws.map((k) => <span key={k} className="text-xs px-2 py-0.5 rounded-full bg-secondary">{k}</span>)}
+                {kws.map((k) => (
+                  <span key={k} className="text-xs px-2 py-0.5 rounded-full bg-secondary">
+                    {k}
+                  </span>
+                ))}
               </div>
               {e.keywords.intent_summary && (
-                <div className="text-xs italic text-muted-foreground">{e.keywords.intent_summary}</div>
+                <div className="text-xs italic text-muted-foreground">
+                  {e.keywords.intent_summary}
+                </div>
               )}
             </li>
           );
@@ -58,7 +77,11 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
             <li key={i} className="border-l-2 border-accent pl-3 ml-2 space-y-1">
               <div className="text-xs text-muted-foreground">Plan ({e.queries.length} queries)</div>
               <ul className="space-y-0.5">
-                {e.queries.map((q) => <li key={q} className="text-xs flex items-start gap-1"><Search className="h-3 w-3 mt-0.5 shrink-0" /> {q}</li>)}
+                {e.queries.map((q) => (
+                  <li key={q} className="text-xs flex items-start gap-1">
+                    <Search className="h-3 w-3 mt-0.5 shrink-0" /> {q}
+                  </li>
+                ))}
               </ul>
             </li>
           );
@@ -66,13 +89,19 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
         if (e.type === "search_results") {
           return (
             <li key={i} className="border-l-2 border-signal/60 pl-3 ml-2">
-              <div className="text-xs"><span className="font-mono text-signal">{e.count}</span> sources found (loop {e.loop})</div>
+              <div className="text-xs">
+                <span className="font-mono text-signal">{e.count}</span> sources found (loop{" "}
+                {e.loop})
+              </div>
             </li>
           );
         }
         if (e.type === "scrape_progress") {
           return (
-            <li key={i} className="border-l-2 border-signal/60 pl-3 ml-2 text-xs flex items-center gap-1">
+            <li
+              key={i}
+              className="border-l-2 border-signal/60 pl-3 ml-2 text-xs flex items-center gap-1"
+            >
               <FileText className="h-3 w-3" /> Reading {e.count} pages
             </li>
           );
@@ -81,16 +110,21 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
           return (
             <li key={i} className="border-l-2 border-accent pl-3 ml-2 text-xs">
               <div className="flex items-center gap-1 font-medium">
-                <RefreshCw className="h-3 w-3" /> Reflection: {e.done ? "enough evidence" : "needs more"}
+                <RefreshCw className="h-3 w-3" /> Reflection:{" "}
+                {e.done ? "enough evidence" : "needs more"}
               </div>
-              {!e.done && e.missing && <div className="text-muted-foreground italic mt-0.5">{e.missing}</div>}
+              {!e.done && e.missing && (
+                <div className="text-muted-foreground italic mt-0.5">{e.missing}</div>
+              )}
             </li>
           );
         }
         if (e.type === "vision_result") {
           return (
             <li key={i} className="border-l-2 border-accent pl-3 ml-2 text-xs">
-              <div className="font-medium flex items-center gap-1"><Eye className="h-3 w-3" /> Scene</div>
+              <div className="font-medium flex items-center gap-1">
+                <Eye className="h-3 w-3" /> Scene
+              </div>
               <div className="text-muted-foreground">{e.scene.scene}</div>
             </li>
           );

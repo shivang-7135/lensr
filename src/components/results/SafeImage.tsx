@@ -20,15 +20,24 @@ export function SafeImage({
 
   if (!src || failed) {
     return fallbackClassName ? (
-      <div className={`bg-gradient-to-br from-accent/20 to-secondary ${fallbackClassName}`} aria-hidden />
+      <div
+        className={`bg-gradient-to-br from-accent/20 to-secondary ${fallbackClassName}`}
+        aria-hidden
+      />
     ) : null;
   }
 
   return (
     <>
-      <div className={`relative overflow-hidden ${zoomable ? "cursor-zoom-in group" : ""}`} onClick={() => zoomable && setOpen(true)}>
+      <div
+        className={`relative overflow-hidden ${zoomable ? "cursor-zoom-in group" : ""}`}
+        onClick={() => zoomable && setOpen(true)}
+      >
         {!loaded && (
-          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/5 via-white/10 to-white/5" aria-hidden />
+          <div
+            className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/5 via-white/10 to-white/5"
+            aria-hidden
+          />
         )}
         <img
           src={src}
@@ -53,12 +62,19 @@ export function SafeImage({
         >
           <button
             className="absolute top-4 right-4 h-10 w-10 rounded-full glass-strong inline-flex items-center justify-center"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+            }}
             aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
-          <img src={src} alt={alt} className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
+          <img
+            src={src}
+            alt={alt}
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+          />
         </div>
       )}
     </>

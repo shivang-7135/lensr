@@ -48,12 +48,16 @@ def setup_tracing() -> None:
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-        # Build headers — Phoenix cloud requires an API key
+        # Phoenix cloud requires api_key header; also support Bearer token format
         headers: dict[str, str] = {}
         if api_key:
-            headers["api_key"] = api_key
+            headers["api_key"] = api_key            # Arize Phoenix format
+            headers["Authorization"] = f"Bearer {api_key}"  # standard OTLP format
 
-        exporter = OTLPSpanExporter(endpoint=endpoint, headers=headers)
+        exporter = OTLPSpanExporter(
+            endpoint=endpoint,
+            headers=headers,
+        )
         resource = Resource.create({"service.name": service_name})
         provider = TracerProvider(resource=resource)
         provider.add_span_processor(BatchSpanProcessor(exporter))
@@ -69,7 +73,11 @@ def setup_tracing() -> None:
             logger.warning("openinference-instrumentation-langchain not installed — LLM spans won't appear")
 
         _tracing_enabled = True
-        logger.info("Phoenix OTEL tracing enabled → %s (service=%s)", endpoint, service_name)
+        key_hint = f"{api_key[:8]}…" if len(api_key) > 8 else "(not set)"
+        logger.info(
+            "Phoenix OTEL tracing enabled → %s (service=%s, api_key=%s)",
+            endpoint, service_name, key_hint,
+        )
 
     except Exception as exc:
         logger.warning("Failed to initialise Phoenix tracing (non-fatal): %s", exc)

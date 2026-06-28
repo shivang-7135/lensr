@@ -264,11 +264,12 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         )
     context = "\n\n---\n\n".join(context_parts)
 
-    # Sonnet only for intents needing rich structured multi-field output.
-    # Haiku is ~2.5x faster and handles text/general answers very well.
+    # Sonnet for intents needing rich multi-field structured output or complex reasoning.
+    # Haiku handles conversational/general answers well and is 2.5x faster.
     needs_sonnet = cfg.name in {
         "shopping", "trip", "price_history", "comparison",
         "real_estate", "automotive", "movies", "recipes",
+        "books", "places", "events", "finance", "tech",
     }
     use_fast_model = not needs_sonnet
 

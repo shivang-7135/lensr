@@ -1,3 +1,4 @@
+from botocore.config import Config
 from langchain_aws import ChatBedrockConverse
 
 from .config import settings
@@ -14,7 +15,7 @@ def reasoning_llm() -> ChatBedrockConverse:
         region_name=settings.aws_region,
         temperature=0.3,
         max_tokens=2048,
-        config={"read_timeout": _REQUEST_TIMEOUT, "retries": {"max_attempts": _MAX_RETRIES}},
+        config=Config(read_timeout=_REQUEST_TIMEOUT, retries={"max_attempts": _MAX_RETRIES}),
     )
 
 
@@ -24,7 +25,7 @@ def router_llm() -> ChatBedrockConverse:
         region_name=settings.aws_region,
         temperature=0.0,
         max_tokens=256,
-        config={"read_timeout": 30, "retries": {"max_attempts": _MAX_RETRIES}},
+        config=Config(read_timeout=30, retries={"max_attempts": _MAX_RETRIES}),
     )
 
 
@@ -34,5 +35,5 @@ def vision_llm() -> ChatBedrockConverse:
         region_name=settings.aws_region,
         temperature=0.4,
         max_tokens=1024,
-        config={"read_timeout": _REQUEST_TIMEOUT, "retries": {"max_attempts": _MAX_RETRIES}},
+        config=Config(read_timeout=_REQUEST_TIMEOUT, retries={"max_attempts": _MAX_RETRIES}),
     )

@@ -20,7 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 def _cache_enabled() -> bool:
-    return settings.cache_enabled and bool(settings.database_url)
+    if not settings.cache_enabled:
+        return False
+    if not settings.database_url:
+        logger.warning("Semantic cache disabled: DATABASE_URL is not set.")
+        return False
+    if "user:pass@localhost" in settings.database_url:
+        logger.warning("Semantic cache disabled: DATABASE_URL is still the placeholder value.")
+        return False
+    return True
 
 
 def _similarity_threshold() -> float:
@@ -123,7 +131,7 @@ async def cache_lookup(query: str) -> dict | None:
 
     except Exception as e:
         # Cache failures should never block the pipeline
-        logger.warning("Cache lookup failed (non-fatal): %s", e)
+        logger.warning("Cache lookup failed (non-fatal): %s: %s", type(e).__name__, e)
         return None
 
 

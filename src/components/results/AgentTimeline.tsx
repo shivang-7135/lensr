@@ -1,137 +1,170 @@
-import { Search, Brain, Globe, FileText, RefreshCw, Sparkles, Eye } from "lucide-react";
+import { useState } from "react";
+import { Search, Brain, Globe, FileText, RefreshCw, Sparkles, Eye, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
 import type { StreamEvent } from "@/lib/search/types";
 
-const ICONS: Record<string, typeof Search> = {
-  extract_keywords: Brain,
-  plan: Sparkles,
-  vision: Eye,
-  synthesize: Sparkles,
+const STAGE_META: Record<string, { icon: typeof Search; label: string; color: string }> = {
+  extract_keywords: { icon: Brain, label: "Extracting keywords", color: "text-violet-400" },
+  plan:             { icon: Sparkles, label: "Planning search queries", color: "text-accent" },
+  vision:           { icon: Eye, label: "Analyzing image", color: "text-blue-400" },
+  synthesize:       { icon: Sparkles, label: "Synthesizing answer", color: "text-accent" },
 };
 
 export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: boolean }) {
+  const [expandedQueries, setExpandedQueries] = useState(false);
+
   const items = events.filter((e) =>
-    [
-      "stage",
-      "keywords_extracted",
-      "search_plan",
-      "search_results",
-      "scrape_progress",
-      "reflection",
-      "vision_result",
-    ].includes(e.type),
+    ["stage", "keywords_extracted", "search_plan", "search_results", "scrape_progress", "reflection", "vision_result"].includes(e.type),
   );
+
+  const totalSources = events
+    .filter((e) => e.type === "search_results")
+    .reduce((a, e) => a + (e.type === "search_results" ? e.count : 0), 0);
 
   if (!items.length) {
     return (
       <ol className="space-y-2 text-sm text-muted-foreground">
-        <li className="animate-pulse">Planning research…</li>
+        <li className="flex items-center gap-2 animate-pulse">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent/60" />
+          Planning research…
+        </li>
       </ol>
     );
   }
 
   return (
-    <ol className="space-y-3 text-sm">
+    <ol className="space-y-2.5 text-sm">
       {items.map((e, i) => {
+        /* ── Stage marker ── */
         if (e.type === "stage") {
-          const Icon = ICONS[e.stage] ?? (e.stage.startsWith("search_loop") ? Search : Globe);
-          const label =
-            e.stage === "extract_keywords"
-              ? "Extracting keywords"
-              : e.stage === "plan"
-                ? "Planning search queries"
-                : e.stage === "vision"
-                  ? "Analyzing image"
-                  : e.stage === "synthesize"
-                    ? "Synthesizing answer"
-                    : e.stage.startsWith("search_loop")
-                      ? `Search pass ${e.stage.split("_").pop()}`
-                      : e.stage;
+          const isSearch = e.stage.startsWith("search_loop");
+          const meta = STAGE_META[e.stage];
+          const Icon = meta?.icon ?? (isSearch ? Search : Globe);
+          const label = meta?.label ?? (isSearch ? `Search pass ${e.stage.split("_").pop()}` : e.stage);
+          const color = meta?.color ?? (isSearch ? "text-sky-400" : "text-muted-foreground");
           return (
             <li key={i} className="flex items-center gap-2 font-medium">
-              <Icon className="h-4 w-4 text-accent" /> {label}
+              <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
+              <span className="text-xs">{label}</span>
             </li>
           );
         }
+
+        /* ── Keywords ── */
         if (e.type === "keywords_extracted") {
-          const kws = e.keywords.keywords ?? [];
+          const kws = [...(e.keywords.keywords ?? []), ...(e.keywords.entities ?? [])];
           return (
-            <li key={i} className="border-l-2 border-accent pl-3 ml-2 space-y-1">
-              <div className="text-xs text-muted-foreground">Keywords</div>
-              <div className="flex flex-wrap gap-1">
-                {kws.map((k) => (
-                  <span key={k} className="text-xs px-2 py-0.5 rounded-full bg-secondary">
-                    {k}
-                  </span>
-                ))}
-              </div>
+            <li key={i} className="ml-5 space-y-1.5">
               {e.keywords.intent_summary && (
-                <div className="text-xs italic text-muted-foreground">
-                  {e.keywords.intent_summary}
+                <p className="text-xs italic text-muted-foreground leading-relaxed">{e.keywords.intent_summary}</p>
+              )}
+              {kws.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {kws.map((k) => (
+                    <span key={k} className="text-[11px] px-2 py-0.5 rounded-full bg-accent/10 text-accent/80 border border-accent/20">
+                      {k}
+                    </span>
+                  ))}
                 </div>
               )}
             </li>
           );
         }
+
+        /* ── Search plan ── */
         if (e.type === "search_plan") {
           return (
-            <li key={i} className="border-l-2 border-accent pl-3 ml-2 space-y-1">
-              <div className="text-xs text-muted-foreground">Plan ({e.queries.length} queries)</div>
-              <ul className="space-y-0.5">
-                {e.queries.map((q) => (
-                  <li key={q} className="text-xs flex items-start gap-1">
-                    <Search className="h-3 w-3 mt-0.5 shrink-0" /> {q}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          );
-        }
-        if (e.type === "search_results") {
-          return (
-            <li key={i} className="border-l-2 border-signal/60 pl-3 ml-2">
-              <div className="text-xs">
-                <span className="font-mono text-signal">{e.count}</span> sources found (loop{" "}
-                {e.loop})
-              </div>
-            </li>
-          );
-        }
-        if (e.type === "scrape_progress") {
-          return (
-            <li
-              key={i}
-              className="border-l-2 border-signal/60 pl-3 ml-2 text-xs flex items-center gap-1"
-            >
-              <FileText className="h-3 w-3" /> Reading {e.count} pages
-            </li>
-          );
-        }
-        if (e.type === "reflection") {
-          return (
-            <li key={i} className="border-l-2 border-accent pl-3 ml-2 text-xs">
-              <div className="flex items-center gap-1 font-medium">
-                <RefreshCw className="h-3 w-3" /> Reflection:{" "}
-                {e.done ? "enough evidence" : "needs more"}
-              </div>
-              {!e.done && e.missing && (
-                <div className="text-muted-foreground italic mt-0.5">{e.missing}</div>
+            <li key={i} className="ml-5">
+              <button
+                onClick={() => setExpandedQueries((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
+              >
+                <Search className="h-3 w-3" />
+                {e.queries.length} search queries planned
+                <ChevronDown className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`} />
+              </button>
+              {expandedQueries && (
+                <ul className="mt-1.5 space-y-1 pl-1 border-l border-white/10 ml-1">
+                  {e.queries.map((q, qi) => (
+                    <li key={qi} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                      <span className="text-accent/50 font-mono shrink-0">{qi + 1}.</span>
+                      {q}
+                    </li>
+                  ))}
+                </ul>
               )}
             </li>
           );
         }
-        if (e.type === "vision_result") {
+
+        /* ── Search results ── */
+        if (e.type === "search_results") {
           return (
-            <li key={i} className="border-l-2 border-accent pl-3 ml-2 text-xs">
-              <div className="font-medium flex items-center gap-1">
-                <Eye className="h-3 w-3" /> Scene
-              </div>
-              <div className="text-muted-foreground">{e.scene.scene}</div>
+            <li key={i} className="ml-5 flex items-center gap-2 text-xs">
+              <Globe className="h-3 w-3 text-sky-400 shrink-0" />
+              <span>
+                Found <span className="font-semibold text-sky-400">{e.count}</span> sources
+                {e.loop > 1 && <span className="text-muted-foreground"> (pass {e.loop})</span>}
+              </span>
             </li>
           );
         }
+
+        /* ── Scrape progress ── */
+        if (e.type === "scrape_progress") {
+          return (
+            <li key={i} className="ml-5 flex items-center gap-2 text-xs text-muted-foreground">
+              <FileText className="h-3 w-3 shrink-0" />
+              Reading {e.count} pages…
+            </li>
+          );
+        }
+
+        /* ── Reflection ── */
+        if (e.type === "reflection") {
+          const sufficient = e.done;
+          return (
+            <li key={i} className="ml-5 space-y-0.5">
+              <div className={`flex items-center gap-1.5 text-xs font-medium ${sufficient ? "text-emerald-400" : "text-amber-400"}`}>
+                {sufficient
+                  ? <CheckCircle2 className="h-3.5 w-3.5" />
+                  : <AlertCircle className="h-3.5 w-3.5" />}
+                {sufficient ? "Sufficient evidence" : "Need more data"}
+                {!sufficient && <RefreshCw className="h-3 w-3 ml-0.5" />}
+              </div>
+              {!sufficient && e.missing && (
+                <p className="text-[11px] text-muted-foreground italic pl-5">{e.missing}</p>
+              )}
+            </li>
+          );
+        }
+
+        /* ── Vision result ── */
+        if (e.type === "vision_result") {
+          return (
+            <li key={i} className="ml-5 space-y-0.5">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-400">
+                <Eye className="h-3.5 w-3.5" /> Scene detected
+              </div>
+              {e.scene.scene && <p className="text-[11px] text-muted-foreground pl-5">{e.scene.scene}</p>}
+            </li>
+          );
+        }
+
         return null;
       })}
-      {!done && <li className="text-xs text-muted-foreground animate-pulse">Working…</li>}
+
+      {done && totalSources > 0 && (
+        <li className="flex items-center gap-2 text-xs text-emerald-400 font-medium mt-1 pt-2 border-t border-white/10">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Done · {totalSources} sources analysed
+        </li>
+      )}
+      {!done && (
+        <li className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-ping" />
+          Working…
+        </li>
+      )}
     </ol>
   );
 }

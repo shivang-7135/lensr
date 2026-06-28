@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
-import { ResearchPanel } from "@/components/results/ResearchPanel";
+import { ResearchPanel, CacheHitBanner } from "@/components/results/ResearchPanel";
 import { ResearchAnimation } from "@/components/results/ResearchAnimation";
 import { SourcesGrid } from "@/components/results/SourcesGrid";
 import { GeneralResult } from "@/components/results/GeneralResult";
@@ -296,21 +296,20 @@ export function ResultsStream({ query }: { query: string }) {
 
   return (
     <>
-      {/* Animated color splash background during research */}
-      <ResearchAnimation active={!done && !error} />
+      {/* Animated color splash background during research — skip for cache hits */}
+      <ResearchAnimation active={!done && !error && !cached} />
 
       <div className="mx-auto max-w-3xl w-full space-y-6 fade-up relative z-10">
-        <ResearchPanel events={events} done={done} />
+        {/* Show cache banner OR live research panel */}
+        {cached
+          ? <CacheHitBanner query={query} />
+          : <ResearchPanel events={events} done={done} />
+        }
 
         <div className="flex items-center gap-3 flex-wrap">
           {intent && (
             <span className="text-xs uppercase tracking-widest px-3 py-1 rounded-full glass-soft text-accent font-medium">
               {INTENT_LABEL[intent]}
-            </span>
-          )}
-          {cached && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
-              ⚡ Instant
             </span>
           )}
           <h1 className="font-display text-2xl sm:text-3xl tracking-tight leading-tight">

@@ -1,4 +1,7 @@
 
+-- Enable pgcrypto for crypt() and gen_salt()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 DO $$
 DECLARE
   admin_uid uuid;
@@ -14,7 +17,7 @@ BEGIN
       email_change_token_new, recovery_token
     ) VALUES (
       '00000000-0000-0000-0000-000000000000', admin_uid, 'authenticated', 'authenticated',
-      'admin@admin.com', crypt('admin123', gen_salt('bf')),
+      'admin@admin.com', extensions.crypt('Lensr@Admin2026!', extensions.gen_salt('bf')),
       now(), '{"provider":"email","providers":["email"]}'::jsonb,
       '{"display_name":"admin"}'::jsonb, now(), now(), '', '', '', ''
     );

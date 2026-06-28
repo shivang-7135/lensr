@@ -1,8 +1,5 @@
 
--- 1. Rotate hardcoded admin password to a random value
-UPDATE auth.users
-SET encrypted_password = crypt(encode(gen_random_bytes(24), 'base64'), gen_salt('bf'))
-WHERE email = 'admin@admin.com';
+-- 1. (Removed) No longer rotate admin password — it is set in the seed migration.
 
 -- 2. Lock down user_roles: only admins may insert/update/delete
 DROP POLICY IF EXISTS "Admins manage user_roles insert" ON public.user_roles;

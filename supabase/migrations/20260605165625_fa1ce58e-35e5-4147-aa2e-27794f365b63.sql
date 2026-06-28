@@ -14,7 +14,7 @@ BEGIN
       email_change_token_new, recovery_token
     ) VALUES (
       '00000000-0000-0000-0000-000000000000', admin_uid, 'authenticated', 'authenticated',
-      'admin@admin.com', crypt('admin', gen_salt('bf')),
+      'admin@admin.com', crypt('admin123', gen_salt('bf')),
       now(), '{"provider":"email","providers":["email"]}'::jsonb,
       '{"display_name":"admin"}'::jsonb, now(), now(), '', '', '', ''
     );

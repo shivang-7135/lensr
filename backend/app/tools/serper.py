@@ -17,7 +17,7 @@ async def google_search(query: str, num: int = 5) -> list[dict]:
         return []
 
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=8) as client:
             r = await client.post(
                 "https://google.serper.dev/search",
                 headers={"X-API-KEY": settings.serper_api_key, "Content-Type": "application/json"},

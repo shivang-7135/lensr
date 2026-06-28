@@ -9,10 +9,10 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    aws_region: str = "us-east-1"
-    bedrock_model_reasoning: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
-    bedrock_model_router: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-    bedrock_model_vision: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    aws_region: str = "eu-west-1"
+    bedrock_model_reasoning: str = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    bedrock_model_router: str = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+    bedrock_model_vision: str = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
     serper_api_key: str | None = None
     tavily_api_key: str | None = None
@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     cache_enabled: bool = True
     cache_similarity_threshold: float = 0.88
     cache_ttl_hours: int = 24
+
+    # Observability — Arize Phoenix
+    phoenix_collector_endpoint: str = "http://localhost:6006/v1/traces"
+    phoenix_api_key: str = ""
+    otel_service_name: str = "lensr-backend"
+    tracing_enabled: bool = True
 
 
 settings = Settings()

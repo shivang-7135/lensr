@@ -14,6 +14,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 from ..config import settings
+from ..observability import span
 from .embeddings import embed_query
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,8 @@ async def cache_lookup(query: str) -> dict | None:
         import psycopg
 
         # Fast path: exact text match (no embedding needed)
-        async with await psycopg.AsyncConnection.connect(settings.database_url) as conn, conn.cursor() as cur:
+        with span("cache.lookup", {"cache.query": query[:100], "cache.type": "exact"}):
+          async with await psycopg.AsyncConnection.connect(settings.database_url) as conn, conn.cursor() as cur:
             await cur.execute(
                 """
                     SELECT id, query, intent, structured, markdown, sources

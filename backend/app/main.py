@@ -7,6 +7,7 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,18 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .config import settings
+from .observability import setup_tracing
 from .router_graph import run_stream
 
-app = FastAPI(title="Lensr backend")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Initialise Phoenix tracing once at startup
+    setup_tracing()
+    yield
+
+
+app = FastAPI(title="Lensr backend", lifespan=lifespan)
 
 # Parse CORS origins — support comma-separated list
 _allowed_origins = [o.strip() for o in settings.cors_allow_origin.split(",") if o.strip()]

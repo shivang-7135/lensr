@@ -19,14 +19,21 @@ from datetime import UTC, datetime
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..llm import reasoning_llm, router_llm
+from ..observability import span
 from ..tools.scraper import fetch_clean
 from ..tools.serper import google_search
 
 logger = logging.getLogger(__name__)
 
-MAX_LOOPS = 1  # Single loop is sufficient for most queries; saves ~4-6s
-MAX_SOURCES = 6
-SCRAPE_TOP_N = 3
+MAX_LOOPS = 2  # Allow one reflection + follow-up pass when evidence is thin
+MAX_SOURCES = 8
+SCRAPE_TOP_N = 4
+
+# Intents that benefit from a reflection loop (research-heavy queries)
+_REFLECTION_INTENTS = frozenset({
+    "shopping", "trip", "price_history", "comparison", "real_estate",
+    "automotive", "finance", "legal", "health", "jobs",
+})
 
 
 @dataclass
@@ -183,48 +190,50 @@ async def _plan_queries(query: str, kw: dict, cfg: IntentConfig) -> list[str]:
 
 
 async def _fanout_search(queries: list[str]) -> list[dict]:
-    results = await asyncio.gather(*[google_search(q, num=3) for q in queries], return_exceptions=True)
-    merged: list[dict] = []
-    seen = set()
-    for q, res in zip(queries, results, strict=False):
-        if isinstance(res, Exception):
-            logger.warning("Search failed for query '%s': %s", q, res)
-            continue
-        if not res:
-            logger.debug("No results for query: '%s'", q)
-        for r in res:
-            link = r.get("link")
-            if not link or link in seen:
+    with span("search.fanout", {"search.query_count": len(queries), "search.queries": str(queries)}):
+        results = await asyncio.gather(*[google_search(q, num=3) for q in queries], return_exceptions=True)
+        merged: list[dict] = []
+        seen = set()
+        for q, res in zip(queries, results, strict=False):
+            if isinstance(res, Exception):
+                logger.warning("Search failed for query '%s': %s", q, res)
                 continue
-            seen.add(link)
-            merged.append(
-                {
-                    "title": r.get("title") or link,
-                    "url": link,
-                    "snippet": r.get("snippet") or "",
-                    "via_query": q,
-                }
-            )
-    if not merged:
-        logger.warning("_fanout_search returned 0 results for %d queries", len(queries))
-    return merged
+            if not res:
+                logger.debug("No results for query: '%s'", q)
+            for r in res:
+                link = r.get("link")
+                if not link or link in seen:
+                    continue
+                seen.add(link)
+                merged.append(
+                    {
+                        "title": r.get("title") or link,
+                        "url": link,
+                        "snippet": r.get("snippet") or "",
+                        "via_query": q,
+                    }
+                )
+        if not merged:
+            logger.warning("_fanout_search returned 0 results for %d queries", len(queries))
+        return merged
 
 
 async def _scrape(sources: list[dict], limit: int) -> list[dict]:
     targets = sources[:limit]
-    bodies = await asyncio.gather(*[fetch_clean(s["url"]) for s in targets], return_exceptions=True)
-    enriched = []
-    for s, body in zip(targets, bodies, strict=False):
-        if isinstance(body, Exception):
-            logger.warning("Scrape failed for %s: %s", s["url"], body)
-            text = None
-        elif isinstance(body, str):
-            text = body
-        else:
-            logger.debug("Scrape returned no content for: %s", s["url"])
-            text = None
-        enriched.append({**s, "body": (text or "")[:4000]})
-    return enriched
+    with span("scrape.pages", {"scrape.url_count": len(targets), "scrape.urls": str([s["url"] for s in targets])}):
+        bodies = await asyncio.gather(*[fetch_clean(s["url"]) for s in targets], return_exceptions=True)
+        enriched = []
+        for s, body in zip(targets, bodies, strict=False):
+            if isinstance(body, Exception):
+                logger.warning("Scrape failed for %s: %s", s["url"], body)
+                text = None
+            elif isinstance(body, str):
+                text = body
+            else:
+                logger.debug("Scrape returned no content for: %s", s["url"])
+                text = None
+            enriched.append({**s, "body": (text or "")[:4000]})
+        return enriched
 
 
 async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
@@ -237,81 +246,100 @@ async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
 
 
 async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentConfig) -> dict:
-    # Limit evidence to avoid context overflow - use only top 6 for speed
-    limited_evidence = evidence[:6]
+    limited_evidence = evidence[:8]
 
-    # Build concise context - shorter snippets for faster processing
+    # Prioritise scraped sources first (richer content), then snippet-only
+    scraped = [e for e in limited_evidence if e.get("body")]
+    snippets_only = [e for e in limited_evidence if not e.get("body")]
+    ordered = (scraped + snippets_only)[:8]
+
+    # Build context: full body for scraped pages, just snippet for others
     context_parts = []
-    for i, e in enumerate(limited_evidence):
-        snippet = e.get("snippet", "")[:150]
-        body = e.get("body", "")[:600]
-        context_parts.append(f"[{i + 1}] {e['title']}\n{snippet}\n{body}")
-    context = "\n\n".join(context_parts)
+    for i, e in enumerate(ordered):
+        snippet = e.get("snippet", "")[:250]
+        body = e.get("body", "")[:1200]  # cap to keep prompt manageable
+        context_parts.append(
+            f"[{i + 1}] {e['title']}\nURL: {e['url']}\n"
+            + (f"Content: {body}" if body else f"Snippet: {snippet}")
+        )
+    context = "\n\n---\n\n".join(context_parts)
 
-    # Intents needing rich structured output use the reasoning model (Sonnet)
-    # Other intents can use the faster router model (Haiku)
-    needs_rich_schema = cfg.name in (
-        "shopping",
-        "trip",
-        "price_history",
-        "insta",
-        "movies",
-        "recipes",
-        "books",
-        "places",
-        "events",
-        "tech",
-        "health",
-        "finance",
-        "jobs",
-        "comparison",
-        "gift",
-        "gaming",
-        "fitness",
-        "real_estate",
-        "automotive",
-        "food",
-    )
+    # Sonnet only for intents needing rich structured multi-field output.
+    # Haiku is ~2.5x faster and handles text/general answers very well.
+    needs_sonnet = cfg.name in {
+        "shopping", "trip", "price_history", "comparison",
+        "real_estate", "automotive", "movies", "recipes",
+    }
+    use_fast_model = not needs_sonnet
 
     sys = (
-        "You are a helpful research assistant. Synthesize the web evidence into a clear, actionable answer.\n\n"
-        f"{cfg.system_prompt}\n\n"
-        "RESPONSE FORMAT - Return ONLY valid JSON (no markdown fences):\n"
+        f"Today is {_today_str()}.\n\n"
+        "You are an expert research analyst producing a high-quality answer for a real user.\n"
+        f"ROLE: {cfg.system_prompt}\n\n"
+        "━━━ QUALITY REQUIREMENTS ━━━\n"
+        "• Be SPECIFIC: use real product names, prices, dates, version numbers from the evidence\n"
+        "• Be HONEST: if evidence is thin, say so — never hallucinate details\n"
+        "• Be ACTIONABLE: every recommendation must have a clear reason why\n"
+        "• Be CURRENT: trust the evidence over your training data for dates/prices/availability\n"
+        "• Cite sources inline as [1], [2] etc. whenever stating a specific fact\n"
+        "• For tldr: write 2-3 punchy sentences that answer the question directly — no filler\n"
+        "• For detail_markdown: use headers (##), bullet points, bold key terms — make it scannable\n\n"
+        "━━━ OUTPUT FORMAT ━━━\n"
+        "Return ONLY valid JSON matching this exact schema (no markdown fences, no extra keys):\n"
         f"{cfg.schema_hint}\n\n"
-        "CRITICAL: You MUST include all fields from the schema above.\n"
-        "- Follow the exact schema structure with all nested arrays\n"
-        "- Be specific with product names, prices, pros/cons\n"
-        "- Cite sources using [n] format"
+        "VALIDATION RULES:\n"
+        "- tldr must be 2-4 sentences, specific, not generic filler\n"
+        "- All array fields must have at least 2 items if evidence supports it\n"
+        "- detail_markdown must be at least 150 words with proper markdown formatting\n"
+        "- Never return placeholder text like 'string' or 'example'\n"
+        "- If a field cannot be filled from evidence, use null (not empty string)"
     )
 
-    user = f"Query: {query}\nKey terms: {', '.join(kw.get('keywords', []))}\n\nEvidence:\n{context}"
+    user = (
+        f"User query: {query}\n"
+        f"Key terms identified: {', '.join(kw.get('keywords', []))}\n"
+        f"Entities: {', '.join(kw.get('entities', []))}\n"
+        f"User constraints: {', '.join(kw.get('constraints', [])) or 'none stated'}\n\n"
+        f"=== EVIDENCE ({len(limited_evidence)} sources) ===\n\n"
+        f"{context}\n\n"
+        "Now synthesize a high-quality answer from the evidence above."
+    )
 
-    # Use reasoning model (Sonnet) for complex schemas, router (Haiku) for simple ones
-    data = await _llm_json(sys, user, use_router=not needs_rich_schema)
+    with span("llm.synthesize", {
+        "intent": cfg.name,
+        "evidence.count": len(limited_evidence),
+        "model": "fast" if use_fast_model else "reasoning",
+        "context.chars": len(context),
+    }):
+        data = await _llm_json(sys, user, use_router=use_fast_model)
 
+    # Fallback: retry with simpler prompt if structured JSON failed
     if not data or not data.get("tldr"):
-        # Smart fallback: extract useful info from evidence
-        top_sources = limited_evidence[:4]
+        logger.warning("Synthesis returned no tldr for '%s' (intent=%s), retrying with fallback prompt", query[:60], cfg.name)
+        fallback_sys = (
+            f"Today is {_today_str()}. Answer the following question using ONLY the evidence provided.\n"
+            "Return JSON with these fields: tldr (2-3 sentence direct answer), "
+            "key_facts (list of 3-5 specific facts with source citations [n]), "
+            "detail_markdown (well-structured markdown answer, minimum 200 words).\n"
+            "Be specific, cite sources, and never invent details."
+        )
+        fallback_user = f"Question: {query}\n\nEvidence:\n{context[:4000]}"
+        data = await _llm_json(fallback_sys, fallback_user, use_router=False)
 
-        # Create a meaningful summary from snippets
-        snippets = [e.get("snippet", "") for e in top_sources if e.get("snippet")]
-        combined = " ".join(snippets)[:400]
-
-        # Extract any items that look like recommendations
-        items = []
-        for e in top_sources:
-            title = e.get("title", "")
-            snippet = e.get("snippet", "")
-            # Look for patterns like "1. X" or "- X" or "X by Y"
-            if title:
-                items.append(f"**{title}**: {snippet[:100]}...")
-
+    # Last resort: build from snippets (never hallucinate)
+    if not data or not data.get("tldr"):
+        logger.error("Both synthesis attempts failed for '%s'", query[:60])
+        snippets = [e.get("snippet", "") for e in limited_evidence[:5] if e.get("snippet")]
+        bullet_facts = [f"- {s.strip()}" for s in snippets if s.strip()]
         data = {
-            "tldr": f"Based on search results: {combined[:200]}..."
-            if combined
-            else f"Here's what I found about '{query}'",
-            "key_facts": [snippet[:150] for snippet in snippets[:5] if snippet] if snippets else [],
-            "detail_markdown": ("## What I Found\n\n" + "\n".join(f"- {item}" for item in items[:6])) if items else "",
+            "tldr": f"I found {len(limited_evidence)} sources about this topic. "
+                    f"Here are the key findings from the web evidence.",
+            "key_facts": snippets[:5],
+            "detail_markdown": (
+                f"## Findings for: {query}\n\n"
+                + "\n".join(bullet_facts[:8])
+                + "\n\n*Note: Could not fully synthesize — showing raw evidence.*"
+            ),
         }
 
     return data
@@ -332,6 +360,16 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
 
     This eliminates 1-2 sequential LLM calls (~3s saved).
     """
+    from ..observability import get_tracer
+    from opentelemetry import trace as otel_trace
+    tracer = get_tracer()
+    pipeline_span = tracer.start_span(f"pipeline.{cfg.name}", attributes={
+        "query": query[:200],
+        "intent": cfg.name,
+    }) if tracer else None
+    ctx = otel_trace.use_span(pipeline_span, end_on_exit=True) if pipeline_span else None
+    if ctx:
+        ctx.__enter__()
     # Start seed search immediately — no LLM round-trip needed
     seed_queries = cfg.seed_queries(query)[:2]
     seed_search_task = asyncio.create_task(_fanout_search(seed_queries))
@@ -385,10 +423,16 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
             if e["url"] in by_url:
                 evidence[i] = by_url[e["url"]]
 
-    # For complex queries with thin evidence, do one more loop
+    # Reflection loop — only when evidence is genuinely thin OR it's a research-heavy intent
+    # Skip for lookup/simple queries to save 8-12s
     scraped_count = sum(1 for e in evidence if e.get("body"))
-    if scraped_count < 2 and len(evidence) < 3 and MAX_LOOPS > 1:
-        # Reflection to get better follow-up queries
+    total_body_chars = sum(len(e.get("body", "")) for e in evidence)
+    evidence_is_thin = scraped_count < 2 or total_body_chars < 2000
+    should_reflect = MAX_LOOPS > 1 and (
+        evidence_is_thin  # always loop when evidence is genuinely thin
+        or cfg.name in _REFLECTION_INTENTS  # research-heavy intents only
+    )
+    if should_reflect:
         reflection = await _reflect(query, evidence, 1)
         yield {
             "type": "reflection",
@@ -407,9 +451,10 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
                     if url and url not in seen_urls and len(evidence) < MAX_SOURCES:
                         evidence.append(r)
                         seen_urls.add(url)
-                # Scrape new results
-                new_unscraped = [e for e in evidence if "body" not in e][:2]
+                # Scrape the newly added pages
+                new_unscraped = [e for e in evidence if "body" not in e][:3]
                 if new_unscraped:
+                    yield {"type": "scrape_progress", "count": len(new_unscraped)}
                     more_scraped = await _scrape(new_unscraped, len(new_unscraped))
                     by_url2 = {s["url"]: s for s in more_scraped}
                     for i, e in enumerate(evidence):
@@ -417,13 +462,31 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
                             evidence[i] = by_url2[e["url"]]
 
     yield {"type": "stage", "stage": "synthesize"}
+
+    # ⚡ Fast partial answer: stream top snippets immediately so the user sees
+    # something while the full LLM synthesis runs (saves perceived ~8-15s)
+    top_snippets = [
+        e.get("snippet", "").strip()
+        for e in evidence[:3]
+        if e.get("snippet", "").strip()
+    ]
+    if top_snippets:
+        yield {"type": "partial_answer", "delta": " ".join(top_snippets)[:400] + "\n\n"}
+
     structured = await _synthesize(query, kw, evidence, cfg)
     sources = [{"title": e["title"], "url": e["url"]} for e in evidence[:10]]
 
-    # stream the tldr as a partial_answer for backwards-compatible UIs
+    # Stream the real tldr once synthesis completes (replaces partial in UI)
     tldr = structured.get("tldr") or ""
     if tldr:
         yield {"type": "partial_answer", "delta": tldr + "\n\n"}
+
+    if pipeline_span:
+        pipeline_span.set_attribute("evidence.final_count", len(evidence))
+        pipeline_span.set_attribute("sources.count", len(sources))
+        pipeline_span.set_attribute("tldr.length", len(tldr))
+    if ctx:
+        ctx.__exit__(None, None, None)
 
     yield {
         "type": "final",

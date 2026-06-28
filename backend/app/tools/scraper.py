@@ -50,9 +50,9 @@ async def fetch_clean(url: str) -> str | None:
 
     try:
         async with httpx.AsyncClient(
-            timeout=6,  # Reduced from 10s for faster pipeline
+            timeout=4,  # Hard 4s cap — slow pages are skipped, not waited on
             follow_redirects=True,
-            max_redirects=3,
+            max_redirects=2,
         ) as client:
             r = await client.get(url, headers={"User-Agent": "LensrBot/1.0"})
             r.raise_for_status()

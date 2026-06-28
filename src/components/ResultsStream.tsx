@@ -226,7 +226,10 @@ export function ResultsStream({ query }: { query: string }) {
         setEvents((prev) => [...prev, ev]);
         if (ev.type === "intent_detected") setIntent(ev.intent);
         if (ev.type === "cache_hit") setCached(true);
-        if (ev.type === "partial_answer") setPartial((p) => p + ev.delta);
+        if (ev.type === "partial_answer") {
+          // Each partial_answer replaces the previous one (fast preview → real tldr)
+          setPartial(ev.delta);
+        }
         if (ev.type === "final") {
           setIntent(ev.intent);
           setFinal({

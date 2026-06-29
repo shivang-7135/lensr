@@ -695,3 +695,29 @@
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
 }
+
+/* ============ Mobile stability ============ */
+@media (max-width: 1023px) {
+  /* Prevent animation overflow on mobile — contain transforms and overflows */
+  .research-animation-container {
+    display: none !important;
+  }
+
+  /* Prevent horizontal overflow from animated elements */
+  .animate-in {
+    overflow: hidden;
+  }
+
+  /* Reduce slide-in distance on mobile to prevent layout jumps */
+  [class*="slide-in-from-bottom"] {
+    --tw-enter-translate-y: 8px !important;
+  }
+
+  /* Contain the fade-up animation to prevent overflow */
+  .fade-up,
+  .fade-up-enhanced {
+    overflow: visible;
+    will-change: opacity, transform;
+    transform: translateZ(0);
+  }
+}

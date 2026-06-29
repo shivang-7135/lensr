@@ -84,6 +84,29 @@ async def search(body: SearchBody, x_backend_secret: str | None = Header(default
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+@app.post("/cache/clear")
+async def clear_cache(x_backend_secret: str | None = Header(default=None)):
+    """Clear the entire semantic cache. Admin-only (requires shared secret)."""
+    _check_secret(x_backend_secret)
+
+    if not settings.database_url or "user:pass@localhost" in settings.database_url:
+        return JSONResponse({"cleared": 0, "message": "No database configured"})
+
+    try:
+        import psycopg
+
+        async with await psycopg.AsyncConnection.connect(settings.database_url) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("DELETE FROM public.search_cache")
+                deleted = cur.rowcount
+            await conn.commit()
+        logger.info("Cache cleared: %d entries removed", deleted)
+        return JSONResponse({"cleared": deleted, "message": f"Cleared {deleted} cached entries"})
+    except Exception as e:
+        logger.exception("Cache clear failed: %s", e)
+        raise HTTPException(500, "Failed to clear cache") from e
+
+
 @app.exception_handler(Exception)
 async def all_errors(_req: Request, exc: Exception):
     request_id = str(uuid.uuid4())[:8]

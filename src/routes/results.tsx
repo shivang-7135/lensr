@@ -32,42 +32,42 @@ export const Route = createFileRoute("/results")({
 
 function ResultsPage() {
   const { q } = Route.useSearch();
-  const [fastMode, setFastMode] = useState(false);
+  const [fastMode, setFastMode] = useState(true);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <SiteHeader />
-      <main className="flex-1 mx-auto max-w-6xl w-full px-6 py-10">
-        <div className="mb-6">
+      <main className="flex-1 mx-auto max-w-6xl w-full px-4 sm:px-6 py-6 sm:py-10 overflow-x-hidden">
+        <div className="mb-4 sm:mb-6">
           <SearchBar initial={q} />
         </div>
 
         {q && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 p-4 rounded-xl border border-border dark:border-white/5 bg-card/30 dark:bg-[#161616]/30 backdrop-blur-sm">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold text-foreground dark:text-white/90">Search Engine Speed</span>
-              <span className="text-xs text-muted-foreground">Toggle between fast parallel search (~8s) and deep multi-loop research</span>
+          <div className="flex items-center justify-between gap-3 mb-6 sm:mb-8 p-3 sm:p-4 rounded-xl border border-border dark:border-white/5 bg-card/30 dark:bg-[#161616]/30 backdrop-blur-sm">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-xs sm:text-sm font-semibold text-foreground dark:text-white/90">Speed</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Fast parallel (~8s) vs deep research</span>
             </div>
-            <div className="flex bg-muted/40 dark:bg-[#18181b]/50 p-1 rounded-full border border-border/50 dark:border-white/5 shadow-inner self-start sm:self-auto">
+            <div className="flex bg-muted/40 dark:bg-[#18181b]/50 p-1 rounded-full border border-border/50 dark:border-white/5 shadow-inner shrink-0">
               <button
                 onClick={() => setFastMode(true)}
-                className={`text-xs px-4 py-1.5 rounded-full transition-all duration-300 font-medium ${
+                className={`text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full transition-all duration-300 font-medium ${
                   fastMode
                     ? "bg-[#27272a] text-[#f4f4f5] dark:bg-[#e4e4e7] dark:text-[#09090b] shadow"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Fast Mode
+                Fast
               </button>
               <button
                 onClick={() => setFastMode(false)}
-                className={`text-xs px-4 py-1.5 rounded-full transition-all duration-300 font-medium ${
+                className={`text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full transition-all duration-300 font-medium ${
                   !fastMode
                     ? "bg-[#27272a] text-[#f4f4f5] dark:bg-[#e4e4e7] dark:text-[#09090b] shadow"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Deep Mode
+                Deep
               </button>
             </div>
           </div>

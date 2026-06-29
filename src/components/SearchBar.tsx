@@ -22,19 +22,20 @@ export function SearchBar({ initial = "" }: { initial?: string }) {
   return (
     <div className="w-full">
       <form onSubmit={submit} className="relative">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+        <Search className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Ask anything — shopping, trips, prices, captions…"
-          className="glass-input w-full rounded-2xl pl-14 pr-32 py-5 text-lg text-foreground placeholder:text-muted-foreground"
+          placeholder="Ask anything…"
+          className="glass-input w-full rounded-2xl pl-12 sm:pl-14 pr-20 sm:pr-32 py-4 sm:py-5 text-base sm:text-lg text-foreground placeholder:text-muted-foreground"
         />
         <button
           type="submit"
-          className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 rounded-xl glass-strong text-foreground font-medium hover:border-accent/60 hover:text-accent transition"
+          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl glass-strong text-foreground font-medium hover:border-accent/60 hover:text-accent transition text-sm sm:text-base"
         >
-          Search →
+          <span className="hidden sm:inline">Search →</span>
+          <span className="sm:hidden">Go</span>
         </button>
       </form>
       <div className="flex flex-wrap gap-2 mt-4">

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Sparkles, Clock, Zap } from "lucide-react";
 import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
 import { ResearchPanel, CacheHitBanner } from "@/components/results/ResearchPanel";
 import { ResearchAnimation } from "@/components/results/ResearchAnimation";
@@ -199,6 +199,26 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Elapsed time tracking
+  const startTimeRef = useRef(Date.now());
+  const [elapsed, setElapsed] = useState(0);
+  const [finalElapsed, setFinalElapsed] = useState<number | null>(null);
+
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    setElapsed(0);
+    setFinalElapsed(null);
+  }, [query, fastMode]);
+
+  useEffect(() => {
+    if (done || error) {
+      setFinalElapsed(Date.now() - startTimeRef.current);
+      return;
+    }
+    const id = setInterval(() => setElapsed(Date.now() - startTimeRef.current), 100);
+    return () => clearInterval(id);
+  }, [done, error]);
+
   useEffect(() => {
     setEvents([]);
     setPartial("");
@@ -302,25 +322,66 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
     <>
       <ResearchAnimation active={!done && !error && !cached} />
 
-      <div className="flex flex-col-reverse lg:flex-row gap-8 max-w-6xl mx-auto w-full relative z-10 fade-up">
-        {/* Left Column: Live Research Sidebar */}
-        <div className="w-full lg:w-[320px] shrink-0">
+      <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto w-full relative z-10">
+        {/* Left Column: Live Research Sidebar — hidden on mobile during loading to prevent layout shifts */}
+        <div className="hidden lg:block w-full lg:w-[320px] shrink-0 order-last lg:order-first">
           <div className="sticky top-24">
             {cached ? <CacheHitBanner query={query} /> : <ResearchPanel events={events} done={done} />}
           </div>
         </div>
 
+        {/* Mobile: Compact research status */}
+        <div className="lg:hidden w-full order-first">
+          {cached ? (
+            <CacheHitBanner query={query} />
+          ) : !done && !error ? (
+            <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-border/50 dark:border-white/10 bg-card/30 dark:bg-[#161616]/50 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">Researching…</span>
+              </div>
+              <div className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground font-mono">
+                <Clock className="h-3 w-3" />
+                {(elapsed / 1000).toFixed(1)}s
+              </div>
+            </div>
+          ) : done && finalElapsed && !cached ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 mb-3">
+              <Zap className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="text-xs text-emerald-500 dark:text-emerald-400 font-medium">
+                Completed in {(finalElapsed / 1000).toFixed(1)}s
+              </span>
+            </div>
+          ) : null}
+        </div>
+
         {/* Right Column: Main Content */}
-        <div className="flex-1 min-w-0 flex flex-col pt-1">
-          <div className="mb-4">
+        <div className="flex-1 min-w-0 flex flex-col pt-1 overflow-hidden">
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
             {intent && (
               <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full bg-card dark:bg-[#27272a] text-card-foreground dark:text-[#f4f4f5] font-bold border border-border dark:border-[#3f3f46]">
                 <Sparkles className="h-3 w-3" />
                 {INTENT_LABEL[intent]} INTENT
               </span>
             )}
+            {/* Live timer / final elapsed badge */}
+            {!done && !error && !cached && (
+              <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full bg-muted/50 dark:bg-[#18181b] text-muted-foreground font-mono tabular-nums border border-border/50 dark:border-[#27272a]">
+                <Clock className="h-3 w-3 animate-pulse" />
+                {(elapsed / 1000).toFixed(1)}s
+              </span>
+            )}
+            {done && finalElapsed && !cached && (
+              <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono tabular-nums border border-emerald-500/20">
+                <Zap className="h-3 w-3" />
+                {(finalElapsed / 1000).toFixed(1)}s
+              </span>
+            )}
           </div>
-          <h1 className="font-sans text-3xl sm:text-4xl tracking-tight font-semibold text-foreground dark:text-[#fafafa] mb-8">
+          <h1 className="font-sans text-2xl sm:text-4xl tracking-tight font-semibold text-foreground dark:text-[#fafafa] mb-5 sm:mb-8 break-words">
             {query}
           </h1>
 
@@ -331,14 +392,14 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
         )}
 
         {final && intent ? (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="space-y-8 animate-in fade-in duration-500">
             {renderStructured(intent, final.structured, final.markdown, final.sources)}
             <div className="pt-8 border-t border-border dark:border-[#27272a] animate-in fade-in duration-700 delay-500">
               <SourcesGrid sources={final.sources} />
             </div>
           </div>
         ) : partial ? (
-          <div className="flex flex-col animate-in fade-in duration-500">
+          <div className="flex flex-col">
             <div className="text-[11px] font-bold tracking-widest text-muted-foreground dark:text-[#a1a1aa] mb-4 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
@@ -348,25 +409,33 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
             </div>
             <h2 className="text-2xl font-semibold text-foreground dark:text-[#fafafa] mb-4">Initial Findings</h2>
             
-            <div className="relative max-h-96 overflow-hidden">
+            <div className="relative max-h-60 sm:max-h-96 overflow-hidden">
               <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/80 dark:text-[#d4d4d8] select-none typing-cursor font-sans">
                 {partial}
               </p>
-              <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-32 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
             </div>
             
-            <div className="mt-8 space-y-3 opacity-60">
+            <div className="mt-6 sm:mt-8 space-y-3 opacity-60">
               <div className="h-4 w-full bg-muted dark:bg-[#27272a] rounded animate-pulse" />
               <div className="h-4 w-[90%] bg-muted dark:bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '100ms' }} />
               <div className="h-4 w-[80%] bg-muted dark:bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '200ms' }} />
             </div>
           </div>
         ) : !error ? (
-          <div className="flex flex-col animate-pulse mt-4 space-y-4">
-             <div className="h-8 w-64 bg-muted dark:bg-[#27272a] rounded" />
-             <div className="h-4 w-full bg-muted dark:bg-[#27272a] rounded" />
-             <div className="h-4 w-5/6 bg-muted dark:bg-[#27272a] rounded" />
-             <div className="h-4 w-4/6 bg-muted dark:bg-[#27272a] rounded" />
+          <div className="flex flex-col mt-4 space-y-5">
+            {/* Animated search progress */}
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+              <span className="text-sm text-muted-foreground">Connecting to agents…</span>
+            </div>
+            <div className="space-y-3">
+              <div className="h-6 w-48 glass-skeleton rounded-lg" />
+              <div className="h-4 w-full glass-skeleton rounded" />
+              <div className="h-4 w-5/6 glass-skeleton rounded" style={{ animationDelay: '200ms' }} />
+              <div className="h-4 w-4/6 glass-skeleton rounded" style={{ animationDelay: '400ms' }} />
+            </div>
+            <div className="gradient-progress-bar w-full mt-2" />
           </div>
         ) : null}
 

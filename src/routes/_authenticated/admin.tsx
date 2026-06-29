@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { listApiKeys, upsertApiKey, deleteApiKey, checkIsAdmin } from "@/lib/api-keys.functions";
 import { REQUIRED_KEYS, type RequiredKey } from "@/lib/required-keys";
 
@@ -283,6 +284,14 @@ function AdminPage() {
       ))}
 
       <section className="mt-10 border-t border-border pt-8">
+        <h2 className="display text-2xl font-bold mb-2">Cache Management</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Clear the semantic search cache to force fresh results. Useful for testing speed and response quality.
+        </p>
+        <CacheClearButton />
+      </section>
+
+      <section className="mt-10 border-t border-border pt-8">
         <h2 className="display text-2xl font-bold mb-4">Add custom key</h2>
         <div className="grid gap-3">
           <div>
@@ -313,5 +322,52 @@ function AdminPage() {
         </div>
       </section>
     </AdminLayout>
+  );
+}
+
+function CacheClearButton() {
+  const [clearing, setClearing] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const clearCache = async () => {
+    if (!confirm("Clear all cached search results? New searches will take longer until cache rebuilds.")) return;
+    setClearing(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/cache-clear", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setResult(`✓ ${data.message || `Cleared ${data.cleared} entries`}`);
+        toast.success(data.message || "Cache cleared");
+      } else {
+        setResult(`✗ ${data.error || "Failed"}`);
+        toast.error(data.error || "Failed to clear cache");
+      }
+    } catch (e) {
+      setResult("✗ Network error");
+      toast.error("Network error");
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      <Button
+        type="button"
+        variant="destructive"
+        onClick={clearCache}
+        disabled={clearing}
+        className="gap-2"
+      >
+        <Trash2 className="h-4 w-4" />
+        {clearing ? "Clearing…" : "Clear Search Cache"}
+      </Button>
+      {result && (
+        <span className={`text-sm ${result.startsWith("✓") ? "text-emerald-500" : "text-destructive"}`}>
+          {result}
+        </span>
+      )}
+    </div>
   );
 }

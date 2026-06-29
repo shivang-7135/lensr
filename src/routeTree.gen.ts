@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
+import { Route as ApiCacheClearRouteImport } from './routes/api/cache-clear'
 import { Route as AuthenticatedSavedRouteImport } from './routes/_authenticated/saved'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiPublicBackendKeysRouteImport } from './routes/api/public/backend-keys'
@@ -48,6 +49,11 @@ const ApiSearchRoute = ApiSearchRouteImport.update({
   path: '/api/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCacheClearRoute = ApiCacheClearRouteImport.update({
+  id: '/api/cache-clear',
+  path: '/api/cache-clear',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSavedRoute = AuthenticatedSavedRouteImport.update({
   id: '/saved',
   path: '/saved',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/results': typeof ResultsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/saved': typeof AuthenticatedSavedRoute
+  '/api/cache-clear': typeof ApiCacheClearRoute
   '/api/search': typeof ApiSearchRoute
   '/api/public/backend-keys': typeof ApiPublicBackendKeysRoute
 }
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/results': typeof ResultsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/saved': typeof AuthenticatedSavedRoute
+  '/api/cache-clear': typeof ApiCacheClearRoute
   '/api/search': typeof ApiSearchRoute
   '/api/public/backend-keys': typeof ApiPublicBackendKeysRoute
 }
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/results': typeof ResultsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/saved': typeof AuthenticatedSavedRoute
+  '/api/cache-clear': typeof ApiCacheClearRoute
   '/api/search': typeof ApiSearchRoute
   '/api/public/backend-keys': typeof ApiPublicBackendKeysRoute
 }
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/results'
     | '/admin'
     | '/saved'
+    | '/api/cache-clear'
     | '/api/search'
     | '/api/public/backend-keys'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/results'
     | '/admin'
     | '/saved'
+    | '/api/cache-clear'
     | '/api/search'
     | '/api/public/backend-keys'
   id:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/results'
     | '/_authenticated/admin'
     | '/_authenticated/saved'
+    | '/api/cache-clear'
     | '/api/search'
     | '/api/public/backend-keys'
   fileRoutesById: FileRoutesById
@@ -136,6 +148,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   InstaRoute: typeof InstaRoute
   ResultsRoute: typeof ResultsRoute
+  ApiCacheClearRoute: typeof ApiCacheClearRoute
   ApiSearchRoute: typeof ApiSearchRoute
   ApiPublicBackendKeysRoute: typeof ApiPublicBackendKeysRoute
 }
@@ -184,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cache-clear': {
+      id: '/api/cache-clear'
+      path: '/api/cache-clear'
+      fullPath: '/api/cache-clear'
+      preLoaderRoute: typeof ApiCacheClearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/saved': {
       id: '/_authenticated/saved'
       path: '/saved'
@@ -227,6 +247,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   InstaRoute: InstaRoute,
   ResultsRoute: ResultsRoute,
+  ApiCacheClearRoute: ApiCacheClearRoute,
   ApiSearchRoute: ApiSearchRoute,
   ApiPublicBackendKeysRoute: ApiPublicBackendKeysRoute,
 }

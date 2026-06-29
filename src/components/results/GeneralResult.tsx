@@ -6,6 +6,50 @@ import type { GeneralStructured } from "@/lib/search/types";
 import { linkifyCitations, citationMarkdownComponents } from "@/lib/search/citations";
 import { SafeImage } from "./SafeImage";
 
+/** Custom ReactMarkdown components with explicit Tailwind classes.
+ *  @tailwindcss/typography is NOT installed, so we style every element manually.
+ */
+function markdownComponents(
+  base: ComponentPropsWithoutRef<typeof ReactMarkdown>["components"],
+): ComponentPropsWithoutRef<typeof ReactMarkdown>["components"] {
+  return {
+    ...base,
+    h1: ({ children }) => (
+      <h2 className="text-lg font-semibold text-foreground mt-6 mb-2 first:mt-0">{children}</h2>
+    ),
+    h2: ({ children }) => (
+      <h3 className="text-base font-semibold text-foreground mt-5 mb-1.5 first:mt-0">{children}</h3>
+    ),
+    h3: ({ children }) => (
+      <h4 className="text-sm font-semibold text-foreground mt-4 mb-1 first:mt-0">{children}</h4>
+    ),
+    p: ({ children }) => (
+      <p className="text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">{children}</p>
+    ),
+    ul: ({ children }) => <ul className="space-y-1.5 mb-3 pl-0">{children}</ul>,
+    ol: ({ children }) => <ol className="space-y-1.5 mb-3 pl-0 list-none">{children}</ol>,
+    li: ({ children }) => (
+      <li className="flex gap-2 text-sm leading-relaxed text-foreground/90">
+        <span className="text-accent shrink-0 mt-0.5">•</span>
+        <span>{children}</span>
+      </li>
+    ),
+    strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+    em: ({ children }) => <em className="italic text-foreground/80">{children}</em>,
+    hr: () => <hr className="border-border/30 my-4" />,
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-2 border-accent/40 pl-4 my-3 text-sm text-muted-foreground italic">
+        {children}
+      </blockquote>
+    ),
+    code: ({ children }) => (
+      <code className="text-xs bg-muted/50 px-1.5 py-0.5 rounded font-mono text-accent">
+        {children}
+      </code>
+    ),
+  };
+}
+
 export function GeneralResult({
   data,
   sources = [],
@@ -13,9 +57,10 @@ export function GeneralResult({
   data: GeneralStructured;
   sources?: { title: string; url: string }[];
 }) {
-  const mdComponents = citationMarkdownComponents(sources) as ComponentPropsWithoutRef<
+  const citationCmps = citationMarkdownComponents(sources) as ComponentPropsWithoutRef<
     typeof ReactMarkdown
   >["components"];
+  const mdCmps = markdownComponents(citationCmps);
 
   return (
     <div className="space-y-5">
@@ -42,28 +87,24 @@ export function GeneralResult({
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-1.5">
             <Lightbulb className="h-4 w-4 text-accent" /> Summary
           </div>
-          <div className="text-sm sm:text-base leading-relaxed prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:m-0">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-              {linkifyCitations(data.tldr, sources)}
-            </ReactMarkdown>
-          </div>
+          <p className="text-sm sm:text-base leading-relaxed text-foreground/90">{data.tldr}</p>
         </div>
       )}
 
-      {/* Key Facts — clean numbered list, no cards */}
+      {/* Key Facts — clean numbered list */}
       {!!data.key_facts?.length && (
         <div className="space-y-1.5">
           <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
             Key Points
           </p>
-          <ol className="space-y-2">
+          <ol className="space-y-2.5 list-none pl-0">
             {data.key_facts.slice(0, 8).map((f, i) => (
               <li key={i} className="flex gap-3 text-sm leading-relaxed">
-                <span className="text-accent font-mono text-xs font-bold mt-0.5 w-4 shrink-0 tabular-nums">
+                <span className="text-accent font-mono text-xs font-bold mt-0.5 w-5 shrink-0 tabular-nums">
                   {i + 1}.
                 </span>
-                <span className="prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:m-0 prose-p:inline">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                <span className="text-foreground/90 flex-1">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdCmps}>
                     {linkifyCitations(f, sources)}
                   </ReactMarkdown>
                 </span>
@@ -73,25 +114,13 @@ export function GeneralResult({
         </div>
       )}
 
-      {/* Full markdown body — rendered as clean readable prose */}
+      {/* Full markdown body */}
       {data.detail_markdown && (
-        <article
-          className={[
-            "prose dark:prose-invert max-w-none",
-            "prose-headings:font-semibold prose-headings:text-foreground prose-headings:mt-6 prose-headings:mb-2",
-            "prose-h2:text-base prose-h3:text-sm",
-            "prose-p:text-sm prose-p:leading-relaxed prose-p:text-foreground/90",
-            "prose-li:text-sm prose-li:leading-relaxed prose-li:my-0.5",
-            "prose-strong:text-foreground prose-strong:font-semibold",
-            "prose-a:text-accent prose-a:no-underline hover:prose-a:underline",
-            "prose-hr:border-border/30",
-            "prose-blockquote:border-l-accent prose-blockquote:text-muted-foreground",
-          ].join(" ")}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+        <div className="border-t border-border/20 pt-5">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdCmps}>
             {linkifyCitations(data.detail_markdown, sources)}
           </ReactMarkdown>
-        </article>
+        </div>
       )}
 
       {/* Related Links */}

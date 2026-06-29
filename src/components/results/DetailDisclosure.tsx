@@ -1,7 +1,43 @@
 import { useState } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChevronDown } from "lucide-react";
+
+const mdCmps: ComponentPropsWithoutRef<typeof ReactMarkdown>["components"] = {
+  h1: ({ children }) => (
+    <h2 className="text-base font-semibold text-foreground mt-5 mb-2 first:mt-0">{children}</h2>
+  ),
+  h2: ({ children }) => (
+    <h3 className="text-sm font-semibold text-foreground mt-4 mb-1.5 first:mt-0">{children}</h3>
+  ),
+  h3: ({ children }) => (
+    <h4 className="text-sm font-medium text-foreground mt-3 mb-1 first:mt-0">{children}</h4>
+  ),
+  p: ({ children }) => (
+    <p className="text-sm leading-relaxed text-foreground/90 mb-3 last:mb-0">{children}</p>
+  ),
+  ul: ({ children }) => <ul className="space-y-1.5 mb-3 pl-0">{children}</ul>,
+  ol: ({ children }) => <ol className="space-y-1.5 mb-3 pl-0 list-none">{children}</ol>,
+  li: ({ children }) => (
+    <li className="flex gap-2 text-sm leading-relaxed text-foreground/90">
+      <span className="text-accent shrink-0 mt-0.5">•</span>
+      <span>{children}</span>
+    </li>
+  ),
+  strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  hr: () => <hr className="border-border/30 my-4" />,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-accent underline-offset-2 hover:underline"
+    >
+      {children}
+    </a>
+  ),
+};
 
 export function DetailDisclosure({
   markdown,
@@ -27,9 +63,11 @@ export function DetailDisclosure({
         className={`grid transition-all duration-300 ease-in-out ${open ? "grid-rows-[1fr] opacity-100 mt-4" : "grid-rows-[0fr] opacity-0 mt-0"}`}
       >
         <div className="overflow-hidden">
-          <article className="prose dark:prose-invert max-w-none prose-headings:font-display prose-a:text-accent prose-sm glass p-5">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-          </article>
+          <div className="glass p-5 space-y-0">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdCmps}>
+              {markdown}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     </div>

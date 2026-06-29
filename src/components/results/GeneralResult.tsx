@@ -32,17 +32,12 @@ function parseMarkdownSections(md: string): { heading: string; content: string }
   return sections.filter((s) => s.content || s.heading);
 }
 
-// Extract bullet items from content
+// Extract bullet items from content — preserve inline markdown (bold, etc.)
 function extractItems(content: string): string[] {
   return content
     .split("\n")
-    .filter((l) => l.match(/^[-*•]\s+\*?\*?/))
-    .map((l) =>
-      l
-        .replace(/^[-*•]\s+/, "")
-        .replace(/\*\*/g, "")
-        .trim(),
-    )
+    .filter((l) => /^[-*•]\s+/.test(l))
+    .map((l) => l.replace(/^[-*•]\s+/, "").trim())
     .filter(Boolean)
     .slice(0, 8);
 }
@@ -87,7 +82,11 @@ export function GeneralResult({
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-1.5">
             <Lightbulb className="h-5 w-5 text-accent drop-shadow-[0_0_6px_oklch(0.6_0.22_270)]" /> Summary
           </div>
-          <p className="text-lg leading-relaxed">{data.tldr}</p>
+          <div className="text-base sm:text-lg leading-relaxed prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:m-0">
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
+              {linkifyCitations(data.tldr, sources)}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
 
@@ -146,15 +145,21 @@ export function GeneralResult({
                       {items.map((item, j) => (
                         <li key={j} className="flex gap-2 text-sm">
                           <ArrowRight className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                          <span className="leading-relaxed">{item}</span>
+                          <span className="leading-relaxed prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:m-0 prose-p:inline">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
+                              {linkifyCitations(item, sources)}
+                            </ReactMarkdown>
+                          </span>
                         </li>
                       ))}
                     </ul>
                   )}
                   {plainContent && !hasItems && (
-                    <p className="text-sm leading-relaxed text-muted-foreground">
-                      {plainContent.slice(0, 300)}
-                    </p>
+                    <div className="text-sm leading-relaxed text-muted-foreground prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:m-0">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
+                        {linkifyCitations(plainContent.slice(0, 600), sources)}
+                      </ReactMarkdown>
+                    </div>
                   )}
                 </div>
               </div>

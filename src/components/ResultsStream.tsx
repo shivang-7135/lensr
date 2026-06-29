@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Clock, Zap } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
 import { ResearchPanel, CacheHitBanner } from "@/components/results/ResearchPanel";
 import { ResearchAnimation } from "@/components/results/ResearchAnimation";
@@ -464,9 +466,9 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
         ) : partial ? (
           <div className="flex flex-col">
             <div className="relative max-h-52 sm:max-h-96 overflow-hidden">
-              <p className="text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/80 dark:text-[#d4d4d8] font-sans">
-                {partial}
-              </p>
+              <div className="prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:leading-relaxed prose-p:my-1 prose-headings:font-semibold text-foreground/80 dark:text-[#d4d4d8]">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{partial}</ReactMarkdown>
+              </div>
               <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
             </div>
             <div className="mt-4 space-y-2 opacity-40">

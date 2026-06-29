@@ -185,7 +185,7 @@ function renderStructured(
 // Client-side timeout for the stream (90 seconds)
 const STREAM_TIMEOUT_MS = 90_000;
 
-export function ResultsStream({ query }: { query: string }) {
+export function ResultsStream({ query, fastMode = false }: { query: string; fastMode?: boolean }) {
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [partial, setPartial] = useState("");
   const [intent, setIntent] = useState<SearchIntent | null>(null);
@@ -251,7 +251,7 @@ export function ResultsStream({ query }: { query: string }) {
         const resp = await fetch("/api/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({ query, fast_mode: fastMode }),
           signal: ctl.signal,
         });
         if (!resp.ok || !resp.body) {
@@ -302,7 +302,7 @@ export function ResultsStream({ query }: { query: string }) {
     <>
       <ResearchAnimation active={!done && !error && !cached} />
 
-      <div className="flex flex-col lg:flex-row gap-8 max-w-6xl mx-auto w-full relative z-10 fade-up">
+      <div className="flex flex-col-reverse lg:flex-row gap-8 max-w-6xl mx-auto w-full relative z-10 fade-up">
         {/* Left Column: Live Research Sidebar */}
         <div className="w-full lg:w-[320px] shrink-0">
           <div className="sticky top-24">

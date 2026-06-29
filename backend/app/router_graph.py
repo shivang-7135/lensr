@@ -17,6 +17,7 @@ import contextvars
 
 # Context variable to hold a background search task across intent boundaries
 generic_search_task_var = contextvars.ContextVar("generic_search_task")
+fast_mode_var = contextvars.ContextVar("fast_mode", default=False)
 
 logger = logging.getLogger(__name__)
 from .agents import (
@@ -226,12 +227,13 @@ async def _classify(query: str) -> Intent:
         return intent  # type: ignore[return-value]
 
 
-async def run_stream(query: str) -> AsyncIterator[dict]:
+async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]:
     # Start a generic search immediately (runs concurrently with classification)
     generic_search_task = asyncio.create_task(google_search(query, num=3))
     
     # Store it in context variable so the inner pipeline can retrieve it without signature changes
     generic_search_task_var.set(generic_search_task)
+    fast_mode_var.set(fast_mode)
 
     # --- Semantic cache check (instant response if hit) ---
     try:

@@ -46,6 +46,7 @@ MAX_QUERY_LENGTH = 2000
 class SearchBody(BaseModel):
     query: str = Field(..., max_length=MAX_QUERY_LENGTH)
     intent_hint: str | None = Field(default=None, max_length=100)
+    fast_mode: bool | None = Field(default=False)
 
 
 def _check_secret(provided: str | None) -> None:
@@ -73,7 +74,7 @@ async def search(body: SearchBody, x_backend_secret: str | None = Header(default
 
     async def gen() -> AsyncIterator[bytes]:
         try:
-            async for evt in run_stream(body.query):
+            async for evt in run_stream(body.query, fast_mode=body.fast_mode or False):
                 yield f"data: {json.dumps(evt)}\n\n".encode()
         except Exception as e:  # noqa: BLE001
             logger.exception("Stream error [%s]: %s", request_id, e)

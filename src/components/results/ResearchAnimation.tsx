@@ -47,7 +47,7 @@ export function ResearchAnimation({ active }: { active: boolean }) {
   if (!visible && !active) return null;
 
   return (
-    <div className={`research-animation-container ${active ? "active" : "fading"}`}>
+    <div className={`research-animation-container ${active ? "active" : "fading"} hidden lg:block`}>
       {/* Animated color blobs — reduced to 4 for performance */}
       {blobs.map((blob) => (
         <div

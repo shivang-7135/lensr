@@ -398,6 +398,74 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         pipeline_span.set_attribute("intent", cfg.name)
         ctx = otel_trace.use_span(pipeline_span, end_on_exit=True)
         ctx.__enter__()
+    # Check if fast mode is requested
+    fast_mode = False
+    try:
+        from ..router_graph import fast_mode_var
+        fast_mode = fast_mode_var.get()
+    except LookupError:
+        pass
+
+    if fast_mode:
+        yield {"type": "stage", "stage": "plan"}
+        kw = {
+            "keywords": [],
+            "entities": [],
+            "constraints": [],
+            "intent_summary": "Fast parallel search",
+        }
+        planned_queries = [query] + cfg.seed_queries(query)[:2]
+        yield {"type": "keywords_extracted", "keywords": kw}
+        yield {"type": "search_plan", "queries": planned_queries}
+
+        yield {"type": "stage", "stage": "search_loop_1"}
+        for q in planned_queries:
+            yield {"type": "tool_call", "tool": "google_search", "input": q}
+
+        evidence = await _fanout_search(planned_queries)
+        evidence = evidence[:3]
+
+        yield {
+            "type": "search_results",
+            "loop": 1,
+            "count": len(evidence),
+            "sample": [{"title": r["title"], "url": r["url"]} for r in evidence],
+        }
+
+        to_scrape = [e for e in evidence if "body" not in e][:2]
+        if to_scrape:
+            yield {"type": "scrape_progress", "count": len(to_scrape)}
+            scraped = await _scrape(to_scrape, len(to_scrape))
+            by_url = {s["url"]: s for s in scraped}
+            for i, e in enumerate(evidence):
+                if e["url"] in by_url:
+                    evidence[i] = by_url[e["url"]]
+
+        yield {"type": "stage", "stage": "synthesize"}
+        structured = await _synthesize(query, kw, evidence, cfg)
+        sources = [{"title": e["title"], "url": e["url"]} for e in evidence]
+
+        tldr = structured.get("tldr") or ""
+        if tldr:
+            yield {"type": "partial_answer", "delta": tldr + "\n\n"}
+
+        if pipeline_span:
+            pipeline_span.set_attribute("evidence.final_count", len(evidence))
+            pipeline_span.set_attribute("sources.count", len(sources))
+            pipeline_span.set_attribute("output.value", tldr[:500])
+            pipeline_span.set_attribute("output.mime_type", "text/plain")
+        if ctx:
+            ctx.__exit__(None, None, None)
+
+        yield {
+            "type": "final",
+            "intent": cfg.name,
+            "structured": structured,
+            "markdown": structured.get("detail_markdown") or tldr,
+            "sources": sources,
+        }
+        return
+
     # Retrieve generic background search if available
     try:
         from ..router_graph import generic_search_task_var

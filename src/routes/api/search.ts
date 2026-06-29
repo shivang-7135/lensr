@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/search")({
           });
         }
 
-        const body = (await request.json()) as { query?: string; intent_hint?: string };
+        const body = (await request.json()) as { query?: string; intent_hint?: string; fast_mode?: boolean };
         const query = (body.query ?? "").trim();
         if (!query) {
           return new Response(JSON.stringify({ error: "Missing query" }), {
@@ -72,7 +72,7 @@ export const Route = createFileRoute("/api/search")({
             "Content-Type": "application/json",
             ...(backendSecret ? { "X-Backend-Secret": backendSecret } : {}),
           },
-          body: JSON.stringify({ query, intent_hint: body.intent_hint }),
+          body: JSON.stringify({ query, intent_hint: body.intent_hint, fast_mode: body.fast_mode }),
         });
         if (!upstream.ok || !upstream.body) {
           // Don't leak backend error details to the client

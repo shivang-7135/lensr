@@ -62,33 +62,32 @@ async def cache_lookup(query: str) -> dict | None:
         import psycopg
 
         # Fast path: exact text match (no embedding needed)
-        with span("cache.lookup", span_kind="RETRIEVER", input_value=query[:100],
-                  attributes={"cache.type": "exact"}):
-          async with await psycopg.AsyncConnection.connect(settings.database_url) as conn, conn.cursor() as cur:
-            await cur.execute(
-                """
+        with span("cache.lookup", span_kind="RETRIEVER", input_value=query[:100], attributes={"cache.type": "exact"}):
+            async with await psycopg.AsyncConnection.connect(settings.database_url) as conn, conn.cursor() as cur:
+                await cur.execute(
+                    """
                     SELECT id, query, intent, structured, markdown, sources
                     FROM public.search_cache
                     WHERE query_normalized = %s AND expires_at > now()
                     LIMIT 1
                     """,
-                (normalized,),
-            )
-            row = await cur.fetchone()
-            if row:
-                # Bump hit count in background (non-blocking)
-                await cur.execute(
-                    "UPDATE public.search_cache SET hit_count = hit_count + 1 WHERE id = %s",
-                    (row[0],),
+                    (normalized,),
                 )
-                await conn.commit()
-                logger.info("Cache HIT (exact match) for: '%s'", query[:50])
-                return {
-                    "intent": row[2],
-                    "structured": row[3] if isinstance(row[3], dict) else json.loads(row[3]),
-                    "markdown": row[4] or "",
-                    "sources": row[5] if isinstance(row[5], list) else json.loads(row[5] or "[]"),
-                }
+                row = await cur.fetchone()
+                if row:
+                    # Bump hit count in background (non-blocking)
+                    await cur.execute(
+                        "UPDATE public.search_cache SET hit_count = hit_count + 1 WHERE id = %s",
+                        (row[0],),
+                    )
+                    await conn.commit()
+                    logger.info("Cache HIT (exact match) for: '%s'", query[:50])
+                    return {
+                        "intent": row[2],
+                        "structured": row[3] if isinstance(row[3], dict) else json.loads(row[3]),
+                        "markdown": row[4] or "",
+                        "sources": row[5] if isinstance(row[5], list) else json.loads(row[5] or "[]"),
+                    }
 
         # Slow path: semantic similarity via embedding
         embedding = await embed_query(query)

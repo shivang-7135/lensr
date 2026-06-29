@@ -50,10 +50,10 @@ def setup_tracing() -> None:
 
     try:
         from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
         base = collector_endpoint.rstrip("/")
         if not base.startswith("http"):
@@ -68,12 +68,14 @@ def setup_tracing() -> None:
             },
         )
 
-        resource = Resource.create({
-            "service.name": "lensr-backend",
-            # This tells Phoenix which project to file traces under
-            "project.name": project_name,
-            "openinference.project.name": project_name,
-        })
+        resource = Resource.create(
+            {
+                "service.name": "lensr-backend",
+                # This tells Phoenix which project to file traces under
+                "project.name": project_name,
+                "openinference.project.name": project_name,
+            }
+        )
         provider = TracerProvider(resource=resource)
         provider.add_span_processor(BatchSpanProcessor(exporter))
         trace.set_tracer_provider(provider)
@@ -82,6 +84,7 @@ def setup_tracing() -> None:
         # Auto-instrument LangChain → gives us detailed LLM spans with prompts/responses
         try:
             from openinference.instrumentation.langchain import LangChainInstrumentor
+
             LangChainInstrumentor().instrument(tracer_provider=provider)
             logger.info("LangChain auto-instrumented for Phoenix")
         except ImportError:
@@ -96,8 +99,13 @@ def setup_tracing() -> None:
 
 
 @contextmanager
-def span(name: str, span_kind: str = "CHAIN", attributes: dict[str, Any] | None = None,
-         input_value: str | None = None, output_value: str | None = None):
+def span(
+    name: str,
+    span_kind: str = "CHAIN",
+    attributes: dict[str, Any] | None = None,
+    input_value: str | None = None,
+    output_value: str | None = None,
+):
     """Create a span with proper OpenInference kind for Phoenix grouping.
 
     span_kind: CHAIN | RETRIEVER | TOOL | LLM | EMBEDDING | AGENT | RERANKER

@@ -30,10 +30,20 @@ MAX_SOURCES = 8
 SCRAPE_TOP_N = 4
 
 # Intents that benefit from a reflection loop (research-heavy queries)
-_REFLECTION_INTENTS = frozenset({
-    "shopping", "trip", "price_history", "comparison", "real_estate",
-    "automotive", "finance", "legal", "health", "jobs",
-})
+_REFLECTION_INTENTS = frozenset(
+    {
+        "shopping",
+        "trip",
+        "price_history",
+        "comparison",
+        "real_estate",
+        "automotive",
+        "finance",
+        "legal",
+        "health",
+        "jobs",
+    }
+)
 
 
 @dataclass
@@ -190,9 +200,12 @@ async def _plan_queries(query: str, kw: dict, cfg: IntentConfig) -> list[str]:
 
 
 async def _fanout_search(queries: list[str]) -> list[dict]:
-    with span("search.fanout", span_kind="RETRIEVER",
-             input_value=json.dumps(queries),
-             attributes={"search.query_count": len(queries)}):
+    with span(
+        "search.fanout",
+        span_kind="RETRIEVER",
+        input_value=json.dumps(queries),
+        attributes={"search.query_count": len(queries)},
+    ):
         results = await asyncio.gather(*[google_search(q, num=3) for q in queries], return_exceptions=True)
         merged: list[dict] = []
         seen = set()
@@ -200,8 +213,9 @@ async def _fanout_search(queries: list[str]) -> list[dict]:
             if isinstance(res, Exception):
                 logger.warning("Search failed for query '%s': %s", q, res)
                 continue
-            if not res:
+            if not res or not isinstance(res, list):
                 logger.debug("No results for query: '%s'", q)
+                continue
             for r in res:
                 link = r.get("link")
                 if not link or link in seen:
@@ -222,9 +236,12 @@ async def _fanout_search(queries: list[str]) -> list[dict]:
 
 async def _scrape(sources: list[dict], limit: int) -> list[dict]:
     targets = sources[:limit]
-    with span("scrape.pages", span_kind="TOOL",
-             input_value=json.dumps([s["url"] for s in targets]),
-             attributes={"scrape.url_count": len(targets)}):
+    with span(
+        "scrape.pages",
+        span_kind="TOOL",
+        input_value=json.dumps([s["url"] for s in targets]),
+        attributes={"scrape.url_count": len(targets)},
+    ):
         bodies = await asyncio.gather(*[fetch_clean(s["url"]) for s in targets], return_exceptions=True)
         enriched = []
         for s, body in zip(targets, bodies, strict=False):
@@ -263,8 +280,7 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         snippet = e.get("snippet", "")[:250]
         body = e.get("body", "")[:1200]  # cap to keep prompt manageable
         context_parts.append(
-            f"[{i + 1}] {e['title']}\nURL: {e['url']}\n"
-            + (f"Content: {body}" if body else f"Snippet: {snippet}")
+            f"[{i + 1}] {e['title']}\nURL: {e['url']}\n" + (f"Content: {body}" if body else f"Snippet: {snippet}")
         )
     context = "\n\n---\n\n".join(context_parts)
 
@@ -305,19 +321,24 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         "Now synthesize a high-quality answer from the evidence above."
     )
 
-    with span("llm.synthesize", span_kind="CHAIN",
-             input_value=f"Query: {query}",
-             attributes={
-                 "intent": cfg.name,
-                 "evidence.count": len(limited_evidence),
-                 "model": "haiku" if use_fast_model else "sonnet",
-                 "context.chars": len(context),
-             }):
+    with span(
+        "llm.synthesize",
+        span_kind="CHAIN",
+        input_value=f"Query: {query}",
+        attributes={
+            "intent": cfg.name,
+            "evidence.count": len(limited_evidence),
+            "model": "haiku" if use_fast_model else "sonnet",
+            "context.chars": len(context),
+        },
+    ):
         data = await _llm_json(sys, user, use_router=use_fast_model)
 
     # Fallback: retry with simpler prompt if structured JSON failed
     if not data or not data.get("tldr"):
-        logger.warning("Synthesis returned no tldr for '%s' (intent=%s), retrying with fallback prompt", query[:60], cfg.name)
+        logger.warning(
+            "Synthesis returned no tldr for '%s' (intent=%s), retrying with fallback prompt", query[:60], cfg.name
+        )
         fallback_sys = (
             f"Today is {_today_str()}. Answer the following question using ONLY the evidence provided.\n"
             "Return JSON with these fields: tldr (2-3 sentence direct answer), "
@@ -335,7 +356,7 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         bullet_facts = [f"- {s.strip()}" for s in snippets if s.strip()]
         data = {
             "tldr": f"I found {len(limited_evidence)} sources about this topic. "
-                    f"Here are the key findings from the web evidence.",
+            f"Here are the key findings from the web evidence.",
             "key_facts": snippets[:5],
             "detail_markdown": (
                 f"## Findings for: {query}\n\n"
@@ -362,8 +383,10 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
 
     This eliminates 1-2 sequential LLM calls (~3s saved).
     """
-    from ..observability import get_tracer, _OPENINFERENCE_SPAN_KIND, _INPUT_VALUE, _INPUT_MIME_TYPE
     from opentelemetry import trace as otel_trace
+
+    from ..observability import _INPUT_MIME_TYPE, _INPUT_VALUE, _OPENINFERENCE_SPAN_KIND, get_tracer
+
     tracer = get_tracer()
     pipeline_span = None
     ctx = None
@@ -470,11 +493,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
 
     # ⚡ Fast partial answer: stream top snippets immediately so the user sees
     # something while the full LLM synthesis runs (saves perceived ~8-15s)
-    top_snippets = [
-        e.get("snippet", "").strip()
-        for e in evidence[:3]
-        if e.get("snippet", "").strip()
-    ]
+    top_snippets = [e.get("snippet", "").strip() for e in evidence[:3] if e.get("snippet", "").strip()]
     if top_snippets:
         yield {"type": "partial_answer", "delta": " ".join(top_snippets)[:400] + "\n\n"}
 

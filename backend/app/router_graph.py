@@ -201,8 +201,8 @@ DISPATCH = {
 
 async def _classify(query: str) -> Intent:
     from .observability import span
-    with span("classify_intent", span_kind="CHAIN", input_value=query,
-              attributes={"model": "haiku"}):
+
+    with span("classify_intent", span_kind="CHAIN", input_value=query, attributes={"model": "haiku"}):
         msg = await router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)])
         raw = (
             msg.content

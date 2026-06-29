@@ -331,11 +331,21 @@ export function ResultsStream({ query }: { query: string }) {
             </div>
           </div>
         ) : partial ? (
-          <div className="p-5 glass animate-in fade-in duration-500">
-            <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /> Drafting answer
+          <div className="p-6 glass-strong border-l-2 border-accent/50 animate-in fade-in duration-500 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-accent/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+            <div className="text-xs uppercase tracking-widest text-accent mb-3 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+              </span>
+              Drafting answer
             </div>
-            <p className="text-base leading-relaxed whitespace-pre-wrap">{partial}</p>
+            <div className="relative max-h-48 overflow-hidden">
+              <p className="text-base leading-relaxed whitespace-pre-wrap text-muted-foreground/80 select-none">
+                {partial}
+              </p>
+              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background/95 via-background/60 to-transparent pointer-events-none" />
+            </div>
           </div>
         ) : !error ? (
           <div className="space-y-3">

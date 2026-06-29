@@ -150,13 +150,13 @@ Create `docs/ARCHITECTURE.md` covering:
 
 ## Decisions
 
-| Decision | Recommendation |
-|----------|---------------|
-| Error reporting replacement | Console.error for now; add Sentry later if needed |
-| Frontend deployment | **Vercel** with custom domain `lensr.studio` |
-| Fallback when backend is down | Return 503 — backend is required |
-| OAuth providers | Google only via Supabase; add Apple/Microsoft later |
-| Domain | `lensr.studio` (already owned) |
+| Decision                      | Recommendation                                      |
+| ----------------------------- | --------------------------------------------------- |
+| Error reporting replacement   | Console.error for now; add Sentry later if needed   |
+| Frontend deployment           | **Vercel** with custom domain `lensr.studio`        |
+| Fallback when backend is down | Return 503 — backend is required                    |
+| OAuth providers               | Google only via Supabase; add Apple/Microsoft later |
+| Domain                        | `lensr.studio` (already owned)                      |
 
 ---
 
@@ -172,12 +172,13 @@ Create `docs/ARCHITECTURE.md` covering:
 ## Scope
 
 **Included:**
+
 - Remove all 7 Lovable touchpoints (deps, OAuth, error reporting, AI gateway, branding, hosting config, `.lovable/` dir)
 - Self-deploy frontend
 - Architecture documentation
 
 **Excluded:**
+
 - Backend changes (Python backend is already independent of Lovable)
 - Supabase migration (Supabase itself is fine to keep — it's your own project)
 - Feature changes (no new functionality)
-

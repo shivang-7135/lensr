@@ -1,19 +1,38 @@
 import { useState } from "react";
-import { Search, Brain, Globe, FileText, RefreshCw, Sparkles, Eye, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  Search,
+  Brain,
+  Globe,
+  FileText,
+  RefreshCw,
+  Sparkles,
+  Eye,
+  ChevronDown,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 import type { StreamEvent } from "@/lib/search/types";
 
 const STAGE_META: Record<string, { icon: typeof Search; label: string; color: string }> = {
   extract_keywords: { icon: Brain, label: "Extracting keywords", color: "text-violet-400" },
-  plan:             { icon: Sparkles, label: "Planning search queries", color: "text-accent" },
-  vision:           { icon: Eye, label: "Analyzing image", color: "text-blue-400" },
-  synthesize:       { icon: Sparkles, label: "Synthesizing answer", color: "text-accent" },
+  plan: { icon: Sparkles, label: "Planning search queries", color: "text-accent" },
+  vision: { icon: Eye, label: "Analyzing image", color: "text-blue-400" },
+  synthesize: { icon: Sparkles, label: "Synthesizing answer", color: "text-accent" },
 };
 
 export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: boolean }) {
   const [expandedQueries, setExpandedQueries] = useState(false);
 
   const items = events.filter((e) =>
-    ["stage", "keywords_extracted", "search_plan", "search_results", "scrape_progress", "reflection", "vision_result"].includes(e.type),
+    [
+      "stage",
+      "keywords_extracted",
+      "search_plan",
+      "search_results",
+      "scrape_progress",
+      "reflection",
+      "vision_result",
+    ].includes(e.type),
   );
 
   const totalSources = events
@@ -39,7 +58,8 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
           const isSearch = e.stage.startsWith("search_loop");
           const meta = STAGE_META[e.stage];
           const Icon = meta?.icon ?? (isSearch ? Search : Globe);
-          const label = meta?.label ?? (isSearch ? `Search pass ${e.stage.split("_").pop()}` : e.stage);
+          const label =
+            meta?.label ?? (isSearch ? `Search pass ${e.stage.split("_").pop()}` : e.stage);
           const color = meta?.color ?? (isSearch ? "text-sky-400" : "text-muted-foreground");
           return (
             <li key={i} className="flex items-center gap-2 font-medium">
@@ -55,12 +75,17 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
           return (
             <li key={i} className="ml-5 space-y-1.5">
               {e.keywords.intent_summary && (
-                <p className="text-xs italic text-muted-foreground leading-relaxed">{e.keywords.intent_summary}</p>
+                <p className="text-xs italic text-muted-foreground leading-relaxed">
+                  {e.keywords.intent_summary}
+                </p>
               )}
               {kws.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {kws.map((k) => (
-                    <span key={k} className="text-[11px] px-2 py-0.5 rounded-full bg-accent/10 text-accent/80 border border-accent/20">
+                    <span
+                      key={k}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-accent/10 text-accent/80 border border-accent/20"
+                    >
                       {k}
                     </span>
                   ))}
@@ -80,12 +105,17 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
               >
                 <Search className="h-3 w-3" />
                 {e.queries.length} search queries planned
-                <ChevronDown className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`} />
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`}
+                />
               </button>
               {expandedQueries && (
                 <ul className="mt-1.5 space-y-1 pl-1 border-l border-white/10 ml-1">
                   {e.queries.map((q, qi) => (
-                    <li key={qi} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                    <li
+                      key={qi}
+                      className="text-[11px] text-muted-foreground flex items-start gap-1.5"
+                    >
                       <span className="text-accent/50 font-mono shrink-0">{qi + 1}.</span>
                       {q}
                     </li>
@@ -124,10 +154,14 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
           const sufficient = e.done;
           return (
             <li key={i} className="ml-5 space-y-0.5">
-              <div className={`flex items-center gap-1.5 text-xs font-medium ${sufficient ? "text-emerald-400" : "text-amber-400"}`}>
-                {sufficient
-                  ? <CheckCircle2 className="h-3.5 w-3.5" />
-                  : <AlertCircle className="h-3.5 w-3.5" />}
+              <div
+                className={`flex items-center gap-1.5 text-xs font-medium ${sufficient ? "text-emerald-400" : "text-amber-400"}`}
+              >
+                {sufficient ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertCircle className="h-3.5 w-3.5" />
+                )}
                 {sufficient ? "Sufficient evidence" : "Need more data"}
                 {!sufficient && <RefreshCw className="h-3 w-3 ml-0.5" />}
               </div>
@@ -145,7 +179,9 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
               <div className="flex items-center gap-1.5 text-xs font-medium text-blue-400">
                 <Eye className="h-3.5 w-3.5" /> Scene detected
               </div>
-              {e.scene.scene && <p className="text-[11px] text-muted-foreground pl-5">{e.scene.scene}</p>}
+              {e.scene.scene && (
+                <p className="text-[11px] text-muted-foreground pl-5">{e.scene.scene}</p>
+              )}
             </li>
           );
         }

@@ -77,7 +77,7 @@ export function GeneralResult({
 
       {/* TL;DR Summary Card */}
       {data.tldr && (
-        <div className="p-5 glass-strong border-l-2 border-accent">
+        <div className="p-5 glass-strong border-l-2 border-accent animate-in fade-in duration-500">
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-1.5">
             <Lightbulb className="h-3.5 w-3.5" /> Summary
           </div>
@@ -87,7 +87,7 @@ export function GeneralResult({
 
       {/* Key Facts as Cards */}
       {!!data.key_facts?.length && (
-        <div className="space-y-3">
+        <div className="space-y-3 animate-in fade-in duration-500 delay-150">
           <h2 className="font-display text-sm uppercase tracking-widest text-muted-foreground flex items-center gap-2">
             <List className="h-4 w-4" /> Key Points
           </h2>
@@ -111,7 +111,7 @@ export function GeneralResult({
 
       {/* Parsed Sections - Only if we have meaningful sections */}
       {sections.length > 0 && sections.some((s) => s.heading) && (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-in fade-in duration-500 delay-300">
           {sections.map((section, i) => {
             const items = extractItems(section.content);
             const hasItems = items.length > 0;
@@ -150,7 +150,7 @@ export function GeneralResult({
 
       {/* Fallback: If no structured content, show clean formatted markdown */}
       {!hasStructuredContent && !sections.some((s) => s.heading) && data.detail_markdown && (
-        <article className="glass p-5 prose prose-invert prose-sm max-w-none prose-headings:font-display prose-p:leading-relaxed prose-a:text-accent prose-strong:text-foreground prose-li:my-0.5">
+        <article className="glass p-5 prose prose-invert prose-sm max-w-none prose-headings:font-display prose-p:leading-relaxed prose-a:text-accent prose-strong:text-foreground prose-li:my-0.5 animate-in fade-in duration-500">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
             {linkifyCitations(data.detail_markdown, sources)}
           </ReactMarkdown>

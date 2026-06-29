@@ -71,7 +71,9 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
           onClick={() => setExpanded((v) => !v)}
           className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground transition rounded-lg border border-white/8 hover:border-white/15 hover:bg-white/[0.03]"
         >
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
           {expanded ? "Show fewer" : `Show ${hidden} more source${hidden !== 1 ? "s" : ""}`}
         </button>
       )}

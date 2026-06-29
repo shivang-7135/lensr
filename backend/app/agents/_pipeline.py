@@ -190,7 +190,9 @@ async def _plan_queries(query: str, kw: dict, cfg: IntentConfig) -> list[str]:
 
 
 async def _fanout_search(queries: list[str]) -> list[dict]:
-    with span("search.fanout", {"search.query_count": len(queries), "search.queries": str(queries)}):
+    with span("search.fanout", span_kind="RETRIEVER",
+             input_value=json.dumps(queries),
+             attributes={"search.query_count": len(queries)}):
         results = await asyncio.gather(*[google_search(q, num=3) for q in queries], return_exceptions=True)
         merged: list[dict] = []
         seen = set()
@@ -220,7 +222,9 @@ async def _fanout_search(queries: list[str]) -> list[dict]:
 
 async def _scrape(sources: list[dict], limit: int) -> list[dict]:
     targets = sources[:limit]
-    with span("scrape.pages", {"scrape.url_count": len(targets), "scrape.urls": str([s["url"] for s in targets])}):
+    with span("scrape.pages", span_kind="TOOL",
+             input_value=json.dumps([s["url"] for s in targets]),
+             attributes={"scrape.url_count": len(targets)}):
         bodies = await asyncio.gather(*[fetch_clean(s["url"]) for s in targets], return_exceptions=True)
         enriched = []
         for s, body in zip(targets, bodies, strict=False):
@@ -264,14 +268,9 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         )
     context = "\n\n---\n\n".join(context_parts)
 
-    # Sonnet for intents needing rich multi-field structured output or complex reasoning.
-    # Haiku handles conversational/general answers well and is 2.5x faster.
-    needs_sonnet = cfg.name in {
-        "shopping", "trip", "price_history", "comparison",
-        "real_estate", "automotive", "movies", "recipes",
-        "books", "places", "events", "finance", "tech",
-    }
-    use_fast_model = not needs_sonnet
+    # Use Sonnet for all intents — Haiku was failing to produce valid structured JSON.
+    # Sonnet is more reliable at following complex schema hints.
+    use_fast_model = cfg.name in {"weather", "news", "sports", "general"}
 
     sys = (
         f"Today is {_today_str()}.\n\n"
@@ -306,12 +305,14 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         "Now synthesize a high-quality answer from the evidence above."
     )
 
-    with span("llm.synthesize", {
-        "intent": cfg.name,
-        "evidence.count": len(limited_evidence),
-        "model": "fast" if use_fast_model else "reasoning",
-        "context.chars": len(context),
-    }):
+    with span("llm.synthesize", span_kind="CHAIN",
+             input_value=f"Query: {query}",
+             attributes={
+                 "intent": cfg.name,
+                 "evidence.count": len(limited_evidence),
+                 "model": "haiku" if use_fast_model else "sonnet",
+                 "context.chars": len(context),
+             }):
         data = await _llm_json(sys, user, use_router=use_fast_model)
 
     # Fallback: retry with simpler prompt if structured JSON failed
@@ -361,15 +362,18 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
 
     This eliminates 1-2 sequential LLM calls (~3s saved).
     """
-    from ..observability import get_tracer
+    from ..observability import get_tracer, _OPENINFERENCE_SPAN_KIND, _INPUT_VALUE, _INPUT_MIME_TYPE
     from opentelemetry import trace as otel_trace
     tracer = get_tracer()
-    pipeline_span = tracer.start_span(f"pipeline.{cfg.name}", attributes={
-        "query": query[:200],
-        "intent": cfg.name,
-    }) if tracer else None
-    ctx = otel_trace.use_span(pipeline_span, end_on_exit=True) if pipeline_span else None
-    if ctx:
+    pipeline_span = None
+    ctx = None
+    if tracer:
+        pipeline_span = tracer.start_span(f"pipeline.{cfg.name}")
+        pipeline_span.set_attribute(_OPENINFERENCE_SPAN_KIND, "CHAIN")
+        pipeline_span.set_attribute(_INPUT_VALUE, query[:500])
+        pipeline_span.set_attribute(_INPUT_MIME_TYPE, "text/plain")
+        pipeline_span.set_attribute("intent", cfg.name)
+        ctx = otel_trace.use_span(pipeline_span, end_on_exit=True)
         ctx.__enter__()
     # Start seed search immediately — no LLM round-trip needed
     seed_queries = cfg.seed_queries(query)[:2]
@@ -485,7 +489,8 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     if pipeline_span:
         pipeline_span.set_attribute("evidence.final_count", len(evidence))
         pipeline_span.set_attribute("sources.count", len(sources))
-        pipeline_span.set_attribute("tldr.length", len(tldr))
+        pipeline_span.set_attribute("output.value", tldr[:500])
+        pipeline_span.set_attribute("output.mime_type", "text/plain")
     if ctx:
         ctx.__exit__(None, None, None)
 

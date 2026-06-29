@@ -4,7 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    region: ohio  # us-east-2, close to Bedrock us-east-1
+    region: ohio # us-east-2, close to Bedrock us-east-1
     plan: starter
     healthCheckPath: /healthz
     envVars:

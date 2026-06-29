@@ -93,18 +93,18 @@ For every result we guarantee:
 
 ## 4. Intents → Result Cards
 
-| Result Card | Handles intents | Key features |
-|---|---|---|
-| `ShoppingResult` | shopping | Product picks with pros/cons, prices, Amazon CTAs |
-| `PriceHistoryResult` | price_history | Price range, buy score, Keepa/CamelCamelCamel links |
-| `TripResult` | trip | Day-by-day itinerary, Maps/Booking/Flights CTAs |
-| `InstaResult` | insta | Caption styles + nearby place suggestions |
-| `MoviesResult` | movies | Movie/TV picks with ratings, streaming links |
-| `RecipesResult` | recipes | Step-by-step recipes with ingredients |
-| `BooksResult` | books | Book recommendations with Goodreads links |
-| `PlacesResult` | places | Venue cards with Maps links |
-| `EventsResult` | events | Event listings with ticket links |
-| `GeneralResult` | All other 26 intents | TL;DR + key facts + detail markdown |
+| Result Card          | Handles intents      | Key features                                        |
+| -------------------- | -------------------- | --------------------------------------------------- |
+| `ShoppingResult`     | shopping             | Product picks with pros/cons, prices, Amazon CTAs   |
+| `PriceHistoryResult` | price_history        | Price range, buy score, Keepa/CamelCamelCamel links |
+| `TripResult`         | trip                 | Day-by-day itinerary, Maps/Booking/Flights CTAs     |
+| `InstaResult`        | insta                | Caption styles + nearby place suggestions           |
+| `MoviesResult`       | movies               | Movie/TV picks with ratings, streaming links        |
+| `RecipesResult`      | recipes              | Step-by-step recipes with ingredients               |
+| `BooksResult`        | books                | Book recommendations with Goodreads links           |
+| `PlacesResult`       | places               | Venue cards with Maps links                         |
+| `EventsResult`       | events               | Event listings with ticket links                    |
+| `GeneralResult`      | All other 26 intents | TL;DR + key facts + detail markdown                 |
 
 ---
 
@@ -121,17 +121,17 @@ For every result we guarantee:
 
 ## 6. Security
 
-| Layer | Protection |
-|---|---|
-| **Database** | RLS on all tables, explicit GRANTs, `SECURITY DEFINER` helpers |
-| **API auth** | Timing-safe (`hmac.compare_digest` / `crypto.timingSafeEqual`) shared secret |
-| **CORS** | Origin allowlist (not `*` in production) |
-| **Input validation** | Query max 2000 chars, body max 8 KB, file upload max 10 MB |
-| **SSRF** | Private IP blocklist (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost, metadata endpoints) |
-| **Error handling** | Sanitized error messages to client, request IDs for server-side debugging |
-| **Secrets** | Startup validation — refuses to start with insecure default in production |
-| **Docker** | Non-root user, multi-stage build, `.dockerignore` |
-| **Headers** | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy |
+| Layer                | Protection                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| **Database**         | RLS on all tables, explicit GRANTs, `SECURITY DEFINER` helpers                                |
+| **API auth**         | Timing-safe (`hmac.compare_digest` / `crypto.timingSafeEqual`) shared secret                  |
+| **CORS**             | Origin allowlist (not `*` in production)                                                      |
+| **Input validation** | Query max 2000 chars, body max 8 KB, file upload max 10 MB                                    |
+| **SSRF**             | Private IP blocklist (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost, metadata endpoints) |
+| **Error handling**   | Sanitized error messages to client, request IDs for server-side debugging                     |
+| **Secrets**          | Startup validation — refuses to start with insecure default in production                     |
+| **Docker**           | Non-root user, multi-stage build, `.dockerignore`                                             |
+| **Headers**          | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy                  |
 
 ---
 
@@ -153,6 +153,7 @@ npm run dev      # or: bun run dev
 ```
 
 Copy `.env.example` to `.env` and fill in:
+
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
@@ -177,32 +178,32 @@ uvicorn app.main:app --reload --port 8000
 
 ### Frontend (build-time, public)
 
-| Variable | Used for |
-|---|---|
-| `VITE_SUPABASE_URL` | Browser Supabase client |
+| Variable                 | Used for                      |
+| ------------------------ | ----------------------------- |
+| `VITE_SUPABASE_URL`      | Browser Supabase client       |
 | `VITE_SUPABASE_ANON_KEY` | Browser Supabase client (RLS) |
 
 ### TanStack Start server (runtime, server-only)
 
-| Variable | Used for |
-|---|---|
-| `BACKEND_BASE_URL` | Where `/api/search` proxies to (required) |
-| `BACKEND_SHARED_SECRET` | Sent as `X-Backend-Secret` to the Python backend |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins for `/api/search` |
+| Variable                | Used for                                          |
+| ----------------------- | ------------------------------------------------- |
+| `BACKEND_BASE_URL`      | Where `/api/search` proxies to (required)         |
+| `BACKEND_SHARED_SECRET` | Sent as `X-Backend-Secret` to the Python backend  |
+| `CORS_ALLOWED_ORIGINS`  | Comma-separated allowed origins for `/api/search` |
 
 ### Python backend (`backend/.env`)
 
-| Variable | Used for |
-|---|---|
-| `AWS_REGION` | AWS region for Bedrock (default: `us-east-1`) |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Bedrock credentials (or use IAM role) |
-| `BEDROCK_MODEL_REASONING` | Reasoning model (default: Claude Sonnet 4.5) |
-| `BEDROCK_MODEL_ROUTER` | Fast classification model (default: Claude Haiku 4.5) |
-| `BEDROCK_MODEL_VISION` | Vision model for image analysis |
-| `SERPER_API_KEY` | Google SERP via serper.dev (required) |
-| `BACKEND_SHARED_SECRET` | Must match the frontend secret (required in production) |
-| `CORS_ALLOW_ORIGIN` | Frontend domain (default: `http://localhost:3000`) |
-| `DATABASE_URL` | Postgres connection (optional, for price history) |
+| Variable                                      | Used for                                                |
+| --------------------------------------------- | ------------------------------------------------------- |
+| `AWS_REGION`                                  | AWS region for Bedrock (default: `us-east-1`)           |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Bedrock credentials (or use IAM role)                   |
+| `BEDROCK_MODEL_REASONING`                     | Reasoning model (default: Claude Sonnet 4.5)            |
+| `BEDROCK_MODEL_ROUTER`                        | Fast classification model (default: Claude Haiku 4.5)   |
+| `BEDROCK_MODEL_VISION`                        | Vision model for image analysis                         |
+| `SERPER_API_KEY`                              | Google SERP via serper.dev (required)                   |
+| `BACKEND_SHARED_SECRET`                       | Must match the frontend secret (required in production) |
+| `CORS_ALLOW_ORIGIN`                           | Frontend domain (default: `http://localhost:3000`)      |
+| `DATABASE_URL`                                | Postgres connection (optional, for price history)       |
 
 ---
 

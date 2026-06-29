@@ -1,14 +1,15 @@
-"""Arize Phoenix observability via phoenix.otel.register().
+"""Arize Phoenix observability with proper OpenInference semantic conventions.
 
-Instruments:
-  - All LangChain LLM calls automatically (via openinference-instrumentation-langchain)
-  - Manual spans for search, scrape, cache, and synthesis steps
+All spans use openinference.semconv attributes so Phoenix can:
+  - Group spans into traces (parent-child)
+  - Show proper span kinds (CHAIN, RETRIEVER, LLM, TOOL)
+  - Display input/output in the trace view
 
-Environment variables (set on Fly.io via flyctl secrets set):
-  PHOENIX_API_KEY             — API key from app.phoenix.arize.com → Settings → API Keys
-  PHOENIX_COLLECTOR_ENDPOINT  — e.g. https://app.phoenix.arize.com (just the base, no path)
-  PHOENIX_PROJECT_NAME        — Project to send traces to (default: "lensr")
-  TRACING_ENABLED             — Set to "false" to disable (default: "true")
+Environment variables (set on Fly.io):
+  PHOENIX_API_KEY             — API key from Phoenix dashboard
+  PHOENIX_COLLECTOR_ENDPOINT  — e.g. https://app.phoenix.arize.com/s/shivangsinha2
+  PHOENIX_PROJECT_NAME        — Project name in Phoenix (default: "lensr")
+  TRACING_ENABLED             — "false" to disable
 """
 
 from __future__ import annotations
@@ -23,9 +24,16 @@ logger = logging.getLogger(__name__)
 _tracer = None
 _tracing_enabled = False
 
+# OpenInference semantic convention attribute names
+_OPENINFERENCE_SPAN_KIND = "openinference.span.kind"
+_INPUT_VALUE = "input.value"
+_INPUT_MIME_TYPE = "input.mime_type"
+_OUTPUT_VALUE = "output.value"
+_OUTPUT_MIME_TYPE = "output.mime_type"
+
 
 def setup_tracing() -> None:
-    """Call once at startup. Safe to call multiple times (idempotent)."""
+    """Call once at startup. Idempotent."""
     global _tracer, _tracing_enabled
 
     if os.getenv("TRACING_ENABLED", "true").lower() == "false":
@@ -33,8 +41,7 @@ def setup_tracing() -> None:
         return
 
     api_key = os.getenv("PHOENIX_API_KEY", "")
-    # Base URL — no path suffix needed, register() appends /v1/traces automatically
-    collector_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "https://app.phoenix.arize.com")
+    collector_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "https://app.phoenix.arize.com/s/shivangsinha2")
     project_name = os.getenv("PHOENIX_PROJECT_NAME", "lensr")
 
     if not api_key:
@@ -42,65 +49,88 @@ def setup_tracing() -> None:
         return
 
     try:
-        from phoenix.otel import register
+        from opentelemetry import trace
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-        # register() handles all OTLP setup + auth headers for Arize Phoenix cloud
-        tracer_provider = register(
-            project_name=project_name,
-            endpoint=f"{collector_endpoint.rstrip('/')}/v1/traces",
-            headers={"api_key": api_key},
-            set_global_tracer_provider=True,
-            verbose=False,
+        base = collector_endpoint.rstrip("/")
+        if not base.startswith("http"):
+            base = f"https://{base}"
+        otlp_endpoint = f"{base}/v1/traces"
+
+        exporter = OTLPSpanExporter(
+            endpoint=otlp_endpoint,
+            headers={
+                "api_key": api_key,
+                "authorization": f"Bearer {api_key}",
+            },
         )
 
-        from opentelemetry import trace
-        _tracer = trace.get_tracer(project_name)
+        resource = Resource.create({
+            "service.name": "lensr-backend",
+            # This tells Phoenix which project to file traces under
+            "project.name": project_name,
+            "openinference.project.name": project_name,
+        })
+        provider = TracerProvider(resource=resource)
+        provider.add_span_processor(BatchSpanProcessor(exporter))
+        trace.set_tracer_provider(provider)
+        _tracer = trace.get_tracer("lensr-backend")
 
-        # Auto-instrument all LangChain LLM calls
+        # Auto-instrument LangChain → gives us detailed LLM spans with prompts/responses
         try:
             from openinference.instrumentation.langchain import LangChainInstrumentor
-            LangChainInstrumentor().instrument(tracer_provider=tracer_provider)
-            logger.info("LangChain instrumented for Phoenix tracing")
+            LangChainInstrumentor().instrument(tracer_provider=provider)
+            logger.info("LangChain auto-instrumented for Phoenix")
         except ImportError:
             logger.warning("openinference-instrumentation-langchain not installed")
 
         _tracing_enabled = True
-        key_hint = f"{api_key[:8]}…" if len(api_key) > 8 else "???"
-        logger.info(
-            "Phoenix tracing active → project=%s endpoint=%s key=%s",
-            project_name, collector_endpoint, key_hint,
-        )
+        logger.info("Phoenix tracing → %s (project=%s)", otlp_endpoint, project_name)
 
     except Exception as exc:
-        logger.warning("Failed to initialise Phoenix tracing (non-fatal): %s", exc)
+        logger.warning("Failed to initialise Phoenix tracing: %s", exc)
         _tracing_enabled = False
 
 
 @contextmanager
-def span(name: str, attributes: dict[str, Any] | None = None):
-    """Context manager that creates a named span if tracing is enabled.
+def span(name: str, span_kind: str = "CHAIN", attributes: dict[str, Any] | None = None,
+         input_value: str | None = None, output_value: str | None = None):
+    """Create a span with proper OpenInference kind for Phoenix grouping.
 
-    Usage:
-        async with span("search.fanout", {"query.count": 3}):
-            ...
+    span_kind: CHAIN | RETRIEVER | TOOL | LLM | EMBEDDING | AGENT | RERANKER
     """
     if not _tracing_enabled or _tracer is None:
         yield None
         return
 
-    from opentelemetry import trace
     from opentelemetry.trace import StatusCode
 
     with _tracer.start_as_current_span(name) as s:
+        # Set OpenInference span kind so Phoenix shows proper icons/grouping
+        s.set_attribute(_OPENINFERENCE_SPAN_KIND, span_kind)
+
+        if input_value:
+            s.set_attribute(_INPUT_VALUE, input_value[:2000])
+            s.set_attribute(_INPUT_MIME_TYPE, "text/plain")
+
         if attributes:
             for k, v in attributes.items():
-                s.set_attribute(k, v)
+                if isinstance(v, (str, int, float, bool)):
+                    s.set_attribute(k, v)
+
         try:
             yield s
         except Exception as exc:
             s.set_status(StatusCode.ERROR, str(exc))
             s.record_exception(exc)
             raise
+        finally:
+            if output_value:
+                s.set_attribute(_OUTPUT_VALUE, output_value[:2000])
+                s.set_attribute(_OUTPUT_MIME_TYPE, "text/plain")
 
 
 def get_tracer():

@@ -9,6 +9,7 @@
 **Lensr** is an AI-powered search engine that classifies user queries by intent and returns structured, category-specific answer cards — not just blue links. Each query flows through a multi-agent pipeline that searches the web, scrapes content, reflects on quality, and synthesizes a structured JSON response tailored to the detected intent (shopping comparison, trip itinerary, recipe, price history, etc.).
 
 ### Key Differentiators
+
 - **Intent-aware results** — 10 backend intents, 20 UI categories, each with a purpose-built result card
 - **Guaranteed media** — Every result has a real image (Wikipedia → OG → AI fallback)
 - **Guaranteed CTAs** — Amazon, Maps, Booking, etc. injected even when the LLM omits them
@@ -69,21 +70,21 @@
 
 ## 3. Tech Stack
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend Framework** | TanStack Start v1 | Full-stack SSR framework with file-based routing |
-| **UI Library** | React 19 | Component rendering |
-| **Styling** | Tailwind CSS v4 + shadcn/ui | Utility-first CSS with pre-built Radix components |
-| **State Management** | TanStack React Query v5 | Server state caching and synchronization |
-| **Routing** | TanStack Router v1 | Type-safe file-based routing |
-| **Backend Framework** | FastAPI | Async Python web framework |
-| **Agent Orchestration** | LangGraph | Multi-agent state machine graphs |
-| **LLM Provider** | AWS Bedrock | Claude 3.5 Sonnet (reasoning), Haiku (routing), Vision |
-| **Search API** | Serper.dev | Google SERP results as structured JSON |
-| **Web Scraping** | trafilatura | Clean text extraction from HTML |
-| **Database** | Supabase (PostgreSQL) | Auth, RLS, storage, user data |
-| **Hosting (Frontend)** | Vercel | Edge deployment at lensr.studio |
-| **Hosting (Backend)** | Docker (AWS App Runner / Fly.io) | Containerized Python service |
+| Layer                   | Technology                       | Purpose                                                |
+| ----------------------- | -------------------------------- | ------------------------------------------------------ |
+| **Frontend Framework**  | TanStack Start v1                | Full-stack SSR framework with file-based routing       |
+| **UI Library**          | React 19                         | Component rendering                                    |
+| **Styling**             | Tailwind CSS v4 + shadcn/ui      | Utility-first CSS with pre-built Radix components      |
+| **State Management**    | TanStack React Query v5          | Server state caching and synchronization               |
+| **Routing**             | TanStack Router v1               | Type-safe file-based routing                           |
+| **Backend Framework**   | FastAPI                          | Async Python web framework                             |
+| **Agent Orchestration** | LangGraph                        | Multi-agent state machine graphs                       |
+| **LLM Provider**        | AWS Bedrock                      | Claude 3.5 Sonnet (reasoning), Haiku (routing), Vision |
+| **Search API**          | Serper.dev                       | Google SERP results as structured JSON                 |
+| **Web Scraping**        | trafilatura                      | Clean text extraction from HTML                        |
+| **Database**            | Supabase (PostgreSQL)            | Auth, RLS, storage, user data                          |
+| **Hosting (Frontend)**  | Vercel                           | Edge deployment at lensr.studio                        |
+| **Hosting (Backend)**   | Docker (AWS App Runner / Fly.io) | Containerized Python service                           |
 
 ---
 
@@ -101,7 +102,7 @@ sequenceDiagram
     User->>Browser: Types "best noise cancelling headphones under $300"
     Browser->>Vercel: POST /api/search {query, intent_hint?}
     Vercel->>Backend: POST /search + X-Backend-Secret
-    
+
     Backend->>Bedrock: Classify intent (Haiku)
     Bedrock-->>Backend: intent: "shopping"
     Backend-->>Vercel: SSE: intent_detected
@@ -154,17 +155,18 @@ Every agent follows the same core pipeline:
 
 ### 5.3 Per-Intent Agents
 
-| Agent | File | Output Schema |
-|-------|------|---------------|
-| Shopping | `agents/shopping.py` | `{tldr, picks[], comparison_table, detail_markdown}` |
-| Price History | `agents/price_history.py` | `{tldr, price_points[], buy_now_score, sale_windows[]}` |
-| Trip Planning | `agents/trip.py` | `{tldr, destination, days[], budget_hint, packing_tips[]}` |
-| Instagram | `agents/insta.py` | `{tldr, scene, mood, captions[], hashtags[], place_suggestions[]}` |
-| General | `agents/general.py` | `{tldr, key_facts[], detail_markdown}` |
+| Agent         | File                      | Output Schema                                                      |
+| ------------- | ------------------------- | ------------------------------------------------------------------ |
+| Shopping      | `agents/shopping.py`      | `{tldr, picks[], comparison_table, detail_markdown}`               |
+| Price History | `agents/price_history.py` | `{tldr, price_points[], buy_now_score, sale_windows[]}`            |
+| Trip Planning | `agents/trip.py`          | `{tldr, destination, days[], budget_hint, packing_tips[]}`         |
+| Instagram     | `agents/insta.py`         | `{tldr, scene, mood, captions[], hashtags[], place_suggestions[]}` |
+| General       | `agents/general.py`       | `{tldr, key_facts[], detail_markdown}`                             |
 
 ### 5.4 LLM Configuration (`backend/app/llm.py`)
 
 Three model tiers via AWS Bedrock:
+
 - **Router** (Haiku) — Fast intent classification, keyword extraction
 - **Reasoning** (Claude 3.5 Sonnet) — Synthesis, reflection, complex reasoning
 - **Vision** (Claude 3.5 Sonnet) — Image analysis for Instagram captions
@@ -175,13 +177,13 @@ Three model tiers via AWS Bedrock:
 
 ### Tables
 
-| Table | Purpose | RLS Policy |
-|-------|---------|------------|
-| `auth.users` | Supabase-managed user accounts | Managed by Supabase |
-| `public.profiles` | Display name, avatar, email | User sees/edits own only |
-| `public.user_roles` | Role assignments (admin/user) | User reads own; admin manages all |
-| `public.api_keys` | Backend API key storage | Admin-only read + write |
-| `public.saved_searches` | User search history | User manages own only |
+| Table                   | Purpose                        | RLS Policy                        |
+| ----------------------- | ------------------------------ | --------------------------------- |
+| `auth.users`            | Supabase-managed user accounts | Managed by Supabase               |
+| `public.profiles`       | Display name, avatar, email    | User sees/edits own only          |
+| `public.user_roles`     | Role assignments (admin/user)  | User reads own; admin manages all |
+| `public.api_keys`       | Backend API key storage        | Admin-only read + write           |
+| `public.saved_searches` | User search history            | User manages own only             |
 
 ### Key Functions
 
@@ -204,10 +206,10 @@ Three model tiers via AWS Bedrock:
 
 ### Roles
 
-| Role | Capabilities |
-|------|-------------|
-| `user` (default) | Search, save results, upload images, manage own profile |
-| `admin` | All user permissions + manage API keys + manage user roles |
+| Role             | Capabilities                                               |
+| ---------------- | ---------------------------------------------------------- |
+| `user` (default) | Search, save results, upload images, manage own profile    |
+| `admin`          | All user permissions + manage API keys + manage user roles |
 
 ### RLS Enforcement
 
@@ -244,47 +246,51 @@ Recommended platforms: AWS App Runner (close to Bedrock), Fly.io, Render.
 
 ### Frontend (Vercel — server runtime)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_SUPABASE_URL` | Yes | Supabase project URL |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase anon/public key |
-| `BACKEND_BASE_URL` | Yes | Python backend URL (e.g., `https://api.lensr.studio`) |
-| `BACKEND_SHARED_SECRET` | Yes | Shared secret for backend authentication |
+| Variable                        | Required | Description                                           |
+| ------------------------------- | -------- | ----------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Yes      | Supabase project URL                                  |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes      | Supabase anon/public key                              |
+| `BACKEND_BASE_URL`              | Yes      | Python backend URL (e.g., `https://api.lensr.studio`) |
+| `BACKEND_SHARED_SECRET`         | Yes      | Shared secret for backend authentication              |
 
 ### Python Backend
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `AWS_REGION` | Yes | AWS region for Bedrock (e.g., `us-east-1`) |
-| `AWS_ACCESS_KEY_ID` | Yes* | AWS credentials (*or use IAM role) |
-| `AWS_SECRET_ACCESS_KEY` | Yes* | AWS credentials (*or use IAM role) |
-| `BEDROCK_MODEL_REASONING` | No | Default: `anthropic.claude-3-5-sonnet-20241022-v2:0` |
-| `BEDROCK_MODEL_ROUTER` | No | Default: `anthropic.claude-3-haiku-20240307-v1:0` |
-| `BEDROCK_MODEL_VISION` | No | Default: `anthropic.claude-3-5-sonnet-20241022-v2:0` |
-| `SERPER_API_KEY` | Yes | Serper.dev Google Search API key |
-| `DATABASE_URL` | No | PostgreSQL URL for price history storage |
-| `BACKEND_SHARED_SECRET` | Yes | Must match frontend's `BACKEND_SHARED_SECRET` |
-| `CORS_ALLOW_ORIGIN` | No | Default: `*`; set to `https://lensr.studio` in production |
+| Variable                  | Required | Description                                               |
+| ------------------------- | -------- | --------------------------------------------------------- |
+| `AWS_REGION`              | Yes      | AWS region for Bedrock (e.g., `us-east-1`)                |
+| `AWS_ACCESS_KEY_ID`       | Yes\*    | AWS credentials (\*or use IAM role)                       |
+| `AWS_SECRET_ACCESS_KEY`   | Yes\*    | AWS credentials (\*or use IAM role)                       |
+| `BEDROCK_MODEL_REASONING` | No       | Default: `anthropic.claude-3-5-sonnet-20241022-v2:0`      |
+| `BEDROCK_MODEL_ROUTER`    | No       | Default: `anthropic.claude-3-haiku-20240307-v1:0`         |
+| `BEDROCK_MODEL_VISION`    | No       | Default: `anthropic.claude-3-5-sonnet-20241022-v2:0`      |
+| `SERPER_API_KEY`          | Yes      | Serper.dev Google Search API key                          |
+| `DATABASE_URL`            | No       | PostgreSQL URL for price history storage                  |
+| `BACKEND_SHARED_SECRET`   | Yes      | Must match frontend's `BACKEND_SHARED_SECRET`             |
+| `CORS_ALLOW_ORIGIN`       | No       | Default: `*`; set to `https://lensr.studio` in production |
 
 ---
 
 ## 10. Security
 
 ### SSRF Protection
+
 - `isPublicHttpUrl()` blocks localhost, `.internal`, `.local`, private IP ranges (10.x, 172.16-31.x, 192.168.x), link-local (169.254.x), and all IPv6
 - Image fetches use `redirect: "manual"` with at most one same-origin hop
 
 ### Row-Level Security
+
 - Every `public.*` table has RLS enabled
 - `anon` role has no access to sensitive tables
 - Admin operations gated by `has_role(auth.uid(), 'admin')`
 
 ### Secret Management
+
 - `X-Backend-Secret` header authenticates frontend → backend communication
 - API keys stored in `api_keys` table (admin-only access)
 - No secrets exposed to client-side code
 
 ### Error Handling
+
 - FastAPI returns generic `"Internal server error"` — no stack traces leaked
 - Frontend error boundary catches and displays user-friendly messages
 

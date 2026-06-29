@@ -200,22 +200,25 @@ DISPATCH = {
 
 
 async def _classify(query: str) -> Intent:
-    msg = await router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)])
-    raw = (
-        msg.content
-        if isinstance(msg.content, str)
-        else "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in msg.content)
-    )
-    raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```", 2)[1].lstrip("json").strip().rsplit("```", 1)[0]
-    try:
-        intent = json.loads(raw).get("intent")
-    except Exception:
-        intent = "general"
-    if intent not in DISPATCH:
-        intent = "general"
-    return intent  # type: ignore[return-value]
+    from .observability import span
+    with span("classify_intent", span_kind="CHAIN", input_value=query,
+              attributes={"model": "haiku"}):
+        msg = await router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)])
+        raw = (
+            msg.content
+            if isinstance(msg.content, str)
+            else "".join(p.get("text", "") if isinstance(p, dict) else str(p) for p in msg.content)
+        )
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```", 2)[1].lstrip("json").strip().rsplit("```", 1)[0]
+        try:
+            intent = json.loads(raw).get("intent")
+        except Exception:
+            intent = "general"
+        if intent not in DISPATCH:
+            intent = "general"
+        return intent  # type: ignore[return-value]
 
 
 async def run_stream(query: str) -> AsyncIterator[dict]:

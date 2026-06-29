@@ -304,10 +304,7 @@ export function ResultsStream({ query }: { query: string }) {
 
       <div className="mx-auto max-w-3xl w-full space-y-6 fade-up relative z-10">
         {/* Show cache banner OR live research panel */}
-        {cached
-          ? <CacheHitBanner query={query} />
-          : <ResearchPanel events={events} done={done} />
-        }
+        {cached ? <CacheHitBanner query={query} /> : <ResearchPanel events={events} done={done} />}
 
         <div className="flex items-center gap-3 flex-wrap">
           {intent && (
@@ -327,14 +324,14 @@ export function ResultsStream({ query }: { query: string }) {
         )}
 
         {final && intent ? (
-          <>
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {renderStructured(intent, final.structured, final.markdown, final.sources)}
-            <div className="pt-6">
+            <div className="pt-6 animate-in fade-in duration-700 delay-500">
               <SourcesGrid sources={final.sources} />
             </div>
-          </>
+          </div>
         ) : partial ? (
-          <div className="p-5 glass">
+          <div className="p-5 glass animate-in fade-in duration-500">
             <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /> Drafting answer
             </div>

@@ -62,7 +62,8 @@ async def cache_lookup(query: str) -> dict | None:
         import psycopg
 
         # Fast path: exact text match (no embedding needed)
-        with span("cache.lookup", {"cache.query": query[:100], "cache.type": "exact"}):
+        with span("cache.lookup", span_kind="RETRIEVER", input_value=query[:100],
+                  attributes={"cache.type": "exact"}):
           async with await psycopg.AsyncConnection.connect(settings.database_url) as conn, conn.cursor() as cur:
             await cur.execute(
                 """

@@ -48,9 +48,7 @@ function ResultsPage() {
               <button
                 onClick={() => setFastMode(true)}
                 className={`text-[10px] sm:text-xs px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-medium transition-colors ${
-                  fastMode
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground"
+                  fastMode ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"
                 }`}
               >
                 Fast
@@ -58,9 +56,7 @@ function ResultsPage() {
               <button
                 onClick={() => setFastMode(false)}
                 className={`text-[10px] sm:text-xs px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-medium transition-colors ${
-                  !fastMode
-                    ? "bg-foreground text-background shadow-sm"
-                    : "text-muted-foreground"
+                  !fastMode ? "bg-foreground text-background shadow-sm" : "text-muted-foreground"
                 }`}
               >
                 Deep

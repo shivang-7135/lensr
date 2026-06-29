@@ -202,12 +202,14 @@ function MobileActivityFeed({ events, elapsed }: { events: StreamEvent[]; elapse
     .reduce((sum, e) => sum + (e.type === "search_results" ? e.count : 0), 0);
 
   const lastStage = [...events].reverse().find((e) => e.type === "stage");
-  const stageCopy = lastStage?.type === "stage" ? (STAGE_COPY[lastStage.stage] ?? "Working…") : "Connecting…";
+  const stageCopy =
+    lastStage?.type === "stage" ? (STAGE_COPY[lastStage.stage] ?? "Working…") : "Connecting…";
 
   const intentEvent = events.find((e) => e.type === "intent_detected");
-  const intentLabel = intentEvent?.type === "intent_detected"
-    ? INTENT_LABEL[intentEvent.intent] ?? intentEvent.intent
-    : null;
+  const intentLabel =
+    intentEvent?.type === "intent_detected"
+      ? (INTENT_LABEL[intentEvent.intent] ?? intentEvent.intent)
+      : null;
 
   // Last search query being run
   const lastToolCall = [...events].reverse().find((e) => e.type === "tool_call");
@@ -235,13 +237,18 @@ function MobileActivityFeed({ events, elapsed }: { events: StreamEvent[]; elapse
         {intentLabel && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="w-1.5 h-1.5 rounded-full bg-accent/60 shrink-0" />
-            <span>Intent: <span className="text-foreground font-medium">{intentLabel}</span></span>
+            <span>
+              Intent: <span className="text-foreground font-medium">{intentLabel}</span>
+            </span>
           </div>
         )}
         {sourcesFound > 0 && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="w-1.5 h-1.5 rounded-full bg-sky-400/60 shrink-0" />
-            <span><span className="text-foreground font-medium tabular-nums">{sourcesFound}</span> sources found</span>
+            <span>
+              <span className="text-foreground font-medium tabular-nums">{sourcesFound}</span>{" "}
+              sources found
+            </span>
           </div>
         )}
         {lastQuery && (
@@ -405,7 +412,11 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
         {/* Left Column: Live Research Sidebar — hidden on mobile during loading to prevent layout shifts */}
         <div className="hidden lg:block w-full lg:w-[320px] shrink-0 order-last lg:order-first">
           <div className="sticky top-24">
-            {cached ? <CacheHitBanner query={query} /> : <ResearchPanel events={events} done={done} />}
+            {cached ? (
+              <CacheHitBanner query={query} />
+            ) : (
+              <ResearchPanel events={events} done={done} />
+            )}
           </div>
         </div>
 
@@ -417,7 +428,9 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
             <MobileActivityFeed events={events} elapsed={elapsed} />
           ) : done && finalElapsed && !cached ? (
             <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-emerald-500/5 border border-emerald-500/15 mb-3">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Done</span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                Done
+              </span>
               <span className="text-xs tabular-nums text-emerald-600 dark:text-emerald-400 font-mono">
                 {(finalElapsed / 1000).toFixed(1)}s
               </span>
@@ -450,62 +463,67 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
             {query}
           </h1>
 
-        {error && (
-          <div className="p-4 glass border border-destructive/50 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="p-4 glass border border-destructive/50 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
-        {final && intent ? (
-          <div className="space-y-6 sm:space-y-8">
-            {renderStructured(intent, final.structured, final.markdown, final.sources)}
-            <div className="pt-6 sm:pt-8 border-t border-border dark:border-[#27272a]">
-              <SourcesGrid sources={final.sources} />
-            </div>
-          </div>
-        ) : partial ? (
-          <div className="flex flex-col">
-            <div className="relative max-h-52 sm:max-h-96 overflow-hidden">
-              <div className="prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:leading-relaxed prose-p:my-1 prose-headings:font-semibold text-foreground/80 dark:text-[#d4d4d8]">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{partial}</ReactMarkdown>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-            </div>
-            <div className="mt-4 space-y-2 opacity-40">
-              <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />
-              <div className="h-3 w-[80%] bg-muted dark:bg-[#222] rounded" />
-            </div>
-          </div>
-        ) : !error ? (
-          <div className="hidden sm:flex flex-col mt-2 space-y-3">
-            <div className="space-y-2.5">
-              <div className="h-5 w-40 bg-muted dark:bg-[#222] rounded" />
-              <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />
-              <div className="h-3 w-[90%] bg-muted dark:bg-[#222] rounded" />
-              <div className="h-3 w-[75%] bg-muted dark:bg-[#222] rounded" />
-            </div>
-          </div>
-        ) : null}
-
-        {(() => {
-          const followups = events.filter(e => e.type === 'reflection').flatMap(e => (e as any).followup_queries ?? []).slice(0, 3);
-          return done && final && followups.length > 0 ? (
-            <div className="pt-8 sm:pt-12 mt-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-3">Related</p>
-              <div className="flex flex-wrap gap-2">
-                {followups.map((q: string, i: number) => (
-                  <a
-                    key={i}
-                    href={`/results?q=${encodeURIComponent(q)}`}
-                    className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-muted/50 dark:bg-[#1a1a1a] border border-border/50 dark:border-[#27272a] text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
-                  >
-                    {q}
-                  </a>
-                ))}
+          {final && intent ? (
+            <div className="space-y-6 sm:space-y-8">
+              {renderStructured(intent, final.structured, final.markdown, final.sources)}
+              <div className="pt-6 sm:pt-8 border-t border-border dark:border-[#27272a]">
+                <SourcesGrid sources={final.sources} />
               </div>
             </div>
-          ) : null;
-        })()}
+          ) : partial ? (
+            <div className="flex flex-col">
+              <div className="relative max-h-52 sm:max-h-96 overflow-hidden">
+                <div className="prose dark:prose-invert prose-sm max-w-none prose-strong:text-foreground prose-p:leading-relaxed prose-p:my-1 prose-headings:font-semibold text-foreground/80 dark:text-[#d4d4d8]">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{partial}</ReactMarkdown>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+              </div>
+              <div className="mt-4 space-y-2 opacity-40">
+                <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />
+                <div className="h-3 w-[80%] bg-muted dark:bg-[#222] rounded" />
+              </div>
+            </div>
+          ) : !error ? (
+            <div className="hidden sm:flex flex-col mt-2 space-y-3">
+              <div className="space-y-2.5">
+                <div className="h-5 w-40 bg-muted dark:bg-[#222] rounded" />
+                <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />
+                <div className="h-3 w-[90%] bg-muted dark:bg-[#222] rounded" />
+                <div className="h-3 w-[75%] bg-muted dark:bg-[#222] rounded" />
+              </div>
+            </div>
+          ) : null}
+
+          {(() => {
+            const followups = events
+              .filter((e) => e.type === "reflection")
+              .flatMap((e) => (e.type === "reflection" ? (e.followup_queries ?? []) : []))
+              .slice(0, 3);
+            return done && final && followups.length > 0 ? (
+              <div className="pt-8 sm:pt-12 mt-4">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-3">
+                  Related
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {followups.map((q: string, i: number) => (
+                    <a
+                      key={i}
+                      href={`/results?q=${encodeURIComponent(q)}`}
+                      className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-muted/50 dark:bg-[#1a1a1a] border border-border/50 dark:border-[#27272a] text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
+                    >
+                      {q}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
     </>

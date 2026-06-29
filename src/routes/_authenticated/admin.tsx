@@ -286,7 +286,8 @@ function AdminPage() {
       <section className="mt-10 border-t border-border pt-8">
         <h2 className="display text-2xl font-bold mb-2">Cache Management</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Clear the semantic search cache to force fresh results. Useful for testing speed and response quality.
+          Clear the semantic search cache to force fresh results. Useful for testing speed and
+          response quality.
         </p>
         <CacheClearButton />
       </section>
@@ -330,7 +331,12 @@ function CacheClearButton() {
   const [result, setResult] = useState<string | null>(null);
 
   const clearCache = async () => {
-    if (!confirm("Clear all cached search results? New searches will take longer until cache rebuilds.")) return;
+    if (
+      !confirm(
+        "Clear all cached search results? New searches will take longer until cache rebuilds.",
+      )
+    )
+      return;
     setClearing(true);
     setResult(null);
     try {
@@ -364,7 +370,9 @@ function CacheClearButton() {
         {clearing ? "Clearing…" : "Clear Search Cache"}
       </Button>
       {result && (
-        <span className={`text-sm ${result.startsWith("✓") ? "text-emerald-500" : "text-destructive"}`}>
+        <span
+          className={`text-sm ${result.startsWith("✓") ? "text-emerald-500" : "text-destructive"}`}
+        >
           {result}
         </span>
       )}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -13,7 +14,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from .llm import router_llm
 from .tools.cache import cache_lookup, cache_store
 from .tools.serper import google_search
-import contextvars
 
 # Context variable to hold a background search task across intent boundaries
 generic_search_task_var = contextvars.ContextVar("generic_search_task")

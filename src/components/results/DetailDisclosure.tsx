@@ -18,7 +18,9 @@ export function DetailDisclosure({
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full glass-soft hover:border-accent/60 hover:text-accent hover:shadow-[0_0_12px_oklch(0.6_0.22_270/0.15)] active:scale-[0.97] transition-all duration-200"
       >
-        <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+        />
         {open ? "Hide full analysis" : label}
       </button>
       <div

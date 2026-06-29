@@ -52,12 +52,16 @@ export function ResearchPanel({ events, done }: { events: StreamEvent[]; done: b
   }, [done]);
 
   return (
-    <div className={`overflow-hidden rounded-xl border border-border/50 dark:border-white/10 bg-card/50 dark:bg-[#161616] p-5 shadow-sm transition-all duration-300`}>
+    <div
+      className={`overflow-hidden rounded-xl border border-border/50 dark:border-white/10 bg-card/50 dark:bg-[#161616] p-5 shadow-sm transition-all duration-300`}
+    >
       <div className="flex items-center gap-2 mb-6">
         <RefreshCw className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-lg font-semibold tracking-tight text-foreground dark:text-white/90">Live Research</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground dark:text-white/90">
+          Live Research
+        </h2>
       </div>
-      
+
       <div className="pl-1">
         <AgentTimeline events={events} done={done} />
       </div>

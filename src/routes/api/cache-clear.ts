@@ -33,10 +33,10 @@ export const Route = createFileRoute("/api/cache-clear")({
             headers: { "Content-Type": "application/json" },
           });
         } catch (e) {
-          return new Response(
-            JSON.stringify({ error: "Failed to reach backend" }),
-            { status: 502, headers: { "Content-Type": "application/json" } },
-          );
+          return new Response(JSON.stringify({ error: "Failed to reach backend" }), {
+            status: 502,
+            headers: { "Content-Type": "application/json" },
+          });
         }
       },
     },

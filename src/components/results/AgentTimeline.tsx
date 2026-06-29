@@ -81,7 +81,10 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
     if (isCompleted) {
       return (
         <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-transparent border-[1.5px] border-border dark:border-[#3f3f46]">
-          <CheckCircle2 className="h-[18px] w-[18px] text-muted-foreground dark:text-[#a1a1aa]" strokeWidth={1.5} />
+          <CheckCircle2
+            className="h-[18px] w-[18px] text-muted-foreground dark:text-[#a1a1aa]"
+            strokeWidth={1.5}
+          />
         </div>
       );
     }
@@ -109,10 +112,12 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
             style={{ animationDelay: `${i * 100}ms` }}
           >
             {renderIndicator(isCompleted, isActive)}
-            
+
             {/* Stage Title */}
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-sans font-medium text-foreground dark:text-white/90">{label}</span>
+              <span className="text-[13px] font-sans font-medium text-foreground dark:text-white/90">
+                {label}
+              </span>
             </div>
 
             {/* Nested Sub-Events */}
@@ -141,7 +146,9 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
                       >
                         <Search className="h-3 w-3 text-accent" />
                         <span>{sub.queries.length} search queries planned</span>
-                        <ChevronDown className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`} />
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`}
+                        />
                       </button>
                       {expandedQueries && (
                         <ul className="mt-1 pl-3 border-l border-border dark:border-white/10 text-[11px] text-muted-foreground dark:text-[#a1a1aa] space-y-1 list-none font-sans">
@@ -160,9 +167,14 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
                 /* ── Search results ── */
                 if (sub.type === "search_results") {
                   return (
-                    <div key={subIdx} className="text-[11px] text-muted-foreground dark:text-[#a1a1aa] font-sans flex items-center gap-1.5">
+                    <div
+                      key={subIdx}
+                      className="text-[11px] text-muted-foreground dark:text-[#a1a1aa] font-sans flex items-center gap-1.5"
+                    >
                       <Globe className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-                      <span>Found {sub.count} sources{sub.loop > 1 && ` (pass ${sub.loop})`}</span>
+                      <span>
+                        Found {sub.count} sources{sub.loop > 1 && ` (pass ${sub.loop})`}
+                      </span>
                     </div>
                   );
                 }
@@ -170,7 +182,10 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
                 /* ── Scrape progress ── */
                 if (sub.type === "scrape_progress") {
                   return (
-                    <div key={subIdx} className="flex items-center gap-1.5 text-xs text-muted-foreground font-sans">
+                    <div
+                      key={subIdx}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground font-sans"
+                    >
                       <FileText className="h-3.5 w-3.5 shrink-0" />
                       <span>Reading {sub.count} pages…</span>
                     </div>
@@ -181,14 +196,26 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
                 if (sub.type === "reflection") {
                   const sufficient = sub.done;
                   return (
-                    <div key={subIdx} className="glass-soft rounded-lg p-3 border border-border dark:border-white/5 space-y-1 bg-card/30">
-                      <div className={`flex items-center gap-1.5 text-xs font-semibold font-sans ${sufficient ? "text-emerald-500 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"}`}>
+                    <div
+                      key={subIdx}
+                      className="glass-soft rounded-lg p-3 border border-border dark:border-white/5 space-y-1 bg-card/30"
+                    >
+                      <div
+                        className={`flex items-center gap-1.5 text-xs font-semibold font-sans ${sufficient ? "text-emerald-500 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"}`}
+                      >
                         {sufficient ? (
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         ) : (
-                          <AlertCircle className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '3s' }} />
+                          <AlertCircle
+                            className="h-3.5 w-3.5 animate-spin"
+                            style={{ animationDuration: "3s" }}
+                          />
                         )}
-                        <span>{sufficient ? "Sufficient evidence gathered" : "Reflection: Need more data"}</span>
+                        <span>
+                          {sufficient
+                            ? "Sufficient evidence gathered"
+                            : "Reflection: Need more data"}
+                        </span>
                       </div>
                       {!sufficient && sub.missing && (
                         <p className="text-[11px] text-muted-foreground italic font-sans pl-5 leading-relaxed">
@@ -202,13 +229,18 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
                 /* ── Vision result ── */
                 if (sub.type === "vision_result") {
                   return (
-                    <div key={subIdx} className="glass-soft rounded-lg p-3 border border-border dark:border-white/5 space-y-1 bg-card/30">
+                    <div
+                      key={subIdx}
+                      className="glass-soft rounded-lg p-3 border border-border dark:border-white/5 space-y-1 bg-card/30"
+                    >
                       <div className="flex items-center gap-1.5 text-xs font-medium text-blue-500 dark:text-blue-400 font-sans">
                         <Eye className="h-3.5 w-3.5" />
                         <span>Scene detected</span>
                       </div>
                       {sub.scene.scene && (
-                        <p className="text-[11px] text-muted-foreground font-sans leading-relaxed pl-5">{sub.scene.scene}</p>
+                        <p className="text-[11px] text-muted-foreground font-sans leading-relaxed pl-5">
+                          {sub.scene.scene}
+                        </p>
                       )}
                     </div>
                   );

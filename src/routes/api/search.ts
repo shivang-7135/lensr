@@ -40,7 +40,11 @@ export const Route = createFileRoute("/api/search")({
           });
         }
 
-        const body = (await request.json()) as { query?: string; intent_hint?: string; fast_mode?: boolean };
+        const body = (await request.json()) as {
+          query?: string;
+          intent_hint?: string;
+          fast_mode?: boolean;
+        };
         const query = (body.query ?? "").trim();
         if (!query) {
           return new Response(JSON.stringify({ error: "Missing query" }), {

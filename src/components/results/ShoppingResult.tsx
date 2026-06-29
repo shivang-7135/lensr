@@ -7,7 +7,12 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
   return (
     <div className="space-y-6">
       {data.tldr && (
-        <div className="p-5 glass-strong border-l-2 border-l-transparent" style={{ borderImage: 'linear-gradient(to bottom, oklch(0.65 0.25 275), oklch(0.65 0.25 310)) 1' }}>
+        <div
+          className="p-5 glass-strong border-l-2 border-l-transparent"
+          style={{
+            borderImage: "linear-gradient(to bottom, oklch(0.65 0.25 275), oklch(0.65 0.25 310)) 1",
+          }}
+        >
           <div className="text-xs uppercase tracking-widest text-accent mb-1 flex items-center gap-1">
             <Award className="h-3 w-3" /> Recommendation
           </div>
@@ -110,7 +115,12 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
       )}
 
       {!!data.comparison_table?.length && (
-        <div className="glass-strong p-4 border-l-2 border-l-transparent" style={{ borderImage: 'linear-gradient(to bottom, oklch(0.65 0.25 275), oklch(0.65 0.25 310)) 1' }}>
+        <div
+          className="glass-strong p-4 border-l-2 border-l-transparent"
+          style={{
+            borderImage: "linear-gradient(to bottom, oklch(0.65 0.25 275), oklch(0.65 0.25 310)) 1",
+          }}
+        >
           <h2 className="font-display text-lg mb-3">Quick Compare</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

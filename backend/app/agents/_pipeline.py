@@ -271,6 +271,7 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
     _is_fast = False
     try:
         from ..router_graph import fast_mode_var
+
         _is_fast = fast_mode_var.get()
     except LookupError:
         pass
@@ -410,6 +411,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     fast_mode = False
     try:
         from ..router_graph import fast_mode_var
+
         fast_mode = fast_mode_var.get()
     except LookupError:
         pass
@@ -424,6 +426,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         # Retrieve the generic search task that started during intent classification
         try:
             from ..router_graph import generic_search_task_var
+
             generic_search_task = generic_search_task_var.get()
         except LookupError:
             generic_search_task = None
@@ -501,6 +504,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     # Retrieve generic background search if available
     try:
         from ..router_graph import generic_search_task_var
+
         generic_search_task = generic_search_task_var.get()
     except LookupError:
         generic_search_task = None
@@ -513,11 +517,11 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     yield {"type": "stage", "stage": "plan"}
     try:
         kw, planned_queries = await asyncio.wait_for(_combined_plan(query, cfg), timeout=8.0)
-    except (asyncio.TimeoutError, Exception) as e:
+    except (TimeoutError, Exception) as e:
         logger.warning("Planner failed or timed out: %s. Falling back to seed queries.", e)
         kw = {"keywords": [], "entities": [], "constraints": [], "intent_summary": "Fallback to base intent"}
         planned_queries = cfg.seed_queries(query)[:3]
-        
+
     yield {"type": "keywords_extracted", "keywords": kw}
     yield {"type": "search_plan", "queries": planned_queries}
 
@@ -534,7 +538,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         if url and url not in seen_urls and len(evidence) < MAX_SOURCES:
             evidence.append(r)
             seen_urls.add(url)
-            
+
     # ⚡ NEW: Early Fast partial answer!
     # Stream top snippets immediately so the user sees something while the scraping and synthesis runs
     top_snippets = [e.get("snippet", "").strip() for e in evidence[:3] if e.get("snippet", "").strip()]
@@ -546,7 +550,9 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     seed_scrape_task = asyncio.create_task(_scrape(seed_unscraped, len(seed_unscraped))) if seed_unscraped else None
 
     # Now run the LLM-planned extra queries concurrently with seed scraping
-    extra_queries = [q for q in planned_queries if q.lower() not in {s.lower() for s in seed_queries} and q.lower() != query.lower()]
+    extra_queries = [
+        q for q in planned_queries if q.lower() not in {s.lower() for s in seed_queries} and q.lower() != query.lower()
+    ]
     if extra_queries:
         yield {"type": "stage", "stage": "search_loop_1"}
         for q in extra_queries:
@@ -573,9 +579,9 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         for i, e in enumerate(evidence):
             if e["url"] in by_url:
                 evidence[i] = by_url[e["url"]]
-                
+
     # Scrape any new extra results if we still need more context
-    extra_unscraped = [e for e in evidence if "body" not in e][:max(0, SCRAPE_TOP_N - len(seed_unscraped))]
+    extra_unscraped = [e for e in evidence if "body" not in e][: max(0, SCRAPE_TOP_N - len(seed_unscraped))]
     if extra_unscraped:
         yield {"type": "scrape_progress", "count": len(extra_unscraped)}
         extra_scraped = await _scrape(extra_unscraped, len(extra_unscraped))

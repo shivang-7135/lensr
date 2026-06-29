@@ -230,9 +230,9 @@ async def _classify(query: str) -> Intent:
 async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]:
     fast_mode_var.set(fast_mode)
 
-    # --- Semantic cache check (instant response if hit) ---
+    # --- Semantic cache check (fast mode only — deep always runs fresh) ---
     try:
-        cached = await cache_lookup(query)
+        cached = await cache_lookup(query, fast_mode=fast_mode)
     except Exception:
         cached = None
 

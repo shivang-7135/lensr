@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Search } from "lucide-react";
 
 const INTENT_CHIPS = [
@@ -12,6 +12,12 @@ const INTENT_CHIPS = [
 export function SearchBar({ initial = "" }: { initial?: string }) {
   const [q, setQ] = useState(initial);
   const navigate = useNavigate();
+
+  // Sync state when navigating back to home (initial resets to "")
+  // or when a new search is triggered from a different page
+  useEffect(() => {
+    setQ(initial);
+  }, [initial]);
 
   function submit(e: FormEvent) {
     e.preventDefault();

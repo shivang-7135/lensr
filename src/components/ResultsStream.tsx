@@ -182,6 +182,83 @@ function renderStructured(
   }
 }
 
+// ─── Mobile Activity Feed ───────────────────────────────────────────────────
+// A lightweight, engaging live-feed shown during generation on mobile.
+// Shows the most recent agent action + a rolling count of sources found.
+const STAGE_COPY: Record<string, string> = {
+  plan: "Planning queries…",
+  search_loop_1: "Searching the web…",
+  search_loop_2: "Digging deeper…",
+  synthesize: "Writing your answer…",
+  vision: "Analysing image…",
+};
+
+function MobileActivityFeed({ events, elapsed }: { events: StreamEvent[]; elapsed: number }) {
+  // Derive the most useful status line from the stream events so far
+  const sourcesFound = events
+    .filter((e) => e.type === "search_results")
+    .reduce((sum, e) => sum + (e.type === "search_results" ? e.count : 0), 0);
+
+  const lastStage = [...events].reverse().find((e) => e.type === "stage");
+  const stageCopy = lastStage?.type === "stage" ? (STAGE_COPY[lastStage.stage] ?? "Working…") : "Connecting…";
+
+  const intentEvent = events.find((e) => e.type === "intent_detected");
+  const intentLabel = intentEvent?.type === "intent_detected"
+    ? INTENT_LABEL[intentEvent.intent] ?? intentEvent.intent
+    : null;
+
+  // Last search query being run
+  const lastToolCall = [...events].reverse().find((e) => e.type === "tool_call");
+  const lastQuery = lastToolCall?.type === "tool_call" ? lastToolCall.input : null;
+
+  return (
+    <div className="mb-4 rounded-xl border border-border/40 dark:border-white/8 bg-card/40 dark:bg-[#111] overflow-hidden">
+      {/* Top bar — status + timer */}
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30 dark:border-white/6">
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Breathing dot */}
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute inset-0 rounded-full bg-accent opacity-60 mobile-breathe" />
+            <span className="relative rounded-full h-2 w-2 bg-accent" />
+          </span>
+          <span className="text-xs font-medium text-foreground truncate">{stageCopy}</span>
+        </div>
+        <span className="text-xs tabular-nums text-muted-foreground font-mono shrink-0 ml-2">
+          {(elapsed / 1000).toFixed(1)}s
+        </span>
+      </div>
+
+      {/* Activity rows */}
+      <div className="px-3 py-2 space-y-1.5">
+        {intentLabel && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent/60 shrink-0" />
+            <span>Intent: <span className="text-foreground font-medium">{intentLabel}</span></span>
+          </div>
+        )}
+        {sourcesFound > 0 && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-400/60 shrink-0" />
+            <span><span className="text-foreground font-medium tabular-nums">{sourcesFound}</span> sources found</span>
+          </div>
+        )}
+        {lastQuery && (
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/60 shrink-0 mt-[3px]" />
+            <span className="truncate italic">"{lastQuery}"</span>
+          </div>
+        )}
+        {!intentLabel && !sourcesFound && !lastQuery && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+            <span>Starting up…</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Client-side timeout for the stream (90 seconds)
 const STREAM_TIMEOUT_MS = 90_000;
 
@@ -316,7 +393,7 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
       clearTimeout(timeout);
       ctl.abort();
     };
-  }, [query]);
+  }, [query, fastMode]);
 
   return (
     <>
@@ -330,20 +407,15 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
           </div>
         </div>
 
-        {/* Mobile: Compact status bar — minimal, no animations */}
+        {/* Mobile: Live activity feed */}
         <div className="lg:hidden w-full order-first">
           {cached ? (
             <CacheHitBanner query={query} />
           ) : !done && !error ? (
-            <div className="flex items-center justify-between px-3 py-2 rounded-md bg-muted/30 dark:bg-[#1a1a1a] mb-3">
-              <span className="text-xs text-muted-foreground">Searching…</span>
-              <span className="text-xs tabular-nums text-muted-foreground font-mono">
-                {(elapsed / 1000).toFixed(1)}s
-              </span>
-            </div>
+            <MobileActivityFeed events={events} elapsed={elapsed} />
           ) : done && finalElapsed && !cached ? (
-            <div className="flex items-center justify-between px-3 py-2 rounded-md bg-emerald-500/5 mb-3">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400">Done</span>
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-emerald-500/5 border border-emerald-500/15 mb-3">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Done</span>
               <span className="text-xs tabular-nums text-emerald-600 dark:text-emerald-400 font-mono">
                 {(finalElapsed / 1000).toFixed(1)}s
               </span>
@@ -391,24 +463,19 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
           </div>
         ) : partial ? (
           <div className="flex flex-col">
-            <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Drafting…</p>
-            
-            <div className="relative max-h-48 sm:max-h-96 overflow-hidden">
+            <div className="relative max-h-52 sm:max-h-96 overflow-hidden">
               <p className="text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/80 dark:text-[#d4d4d8] font-sans">
                 {partial}
               </p>
               <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
             </div>
-            
-            <div className="mt-4 sm:mt-8 space-y-2.5 opacity-50">
-              <div className="h-3 sm:h-4 w-full bg-muted dark:bg-[#222] rounded" />
-              <div className="h-3 sm:h-4 w-[85%] bg-muted dark:bg-[#222] rounded" />
-              <div className="h-3 sm:h-4 w-[70%] bg-muted dark:bg-[#222] rounded" />
+            <div className="mt-4 space-y-2 opacity-40">
+              <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />
+              <div className="h-3 w-[80%] bg-muted dark:bg-[#222] rounded" />
             </div>
           </div>
         ) : !error ? (
-          <div className="flex flex-col mt-2 space-y-3">
-            <p className="text-xs text-muted-foreground">Loading…</p>
+          <div className="hidden sm:flex flex-col mt-2 space-y-3">
             <div className="space-y-2.5">
               <div className="h-5 w-40 bg-muted dark:bg-[#222] rounded" />
               <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />

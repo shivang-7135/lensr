@@ -47,12 +47,22 @@ def _get_supabase_url() -> str | None:
     return settings.database_url
 
 
-async def cache_lookup(query: str) -> dict | None:
+async def cache_lookup(query: str, fast_mode: bool = True) -> dict | None:
     """Check if a semantically similar query exists in cache.
 
     Returns cached result dict if found, None otherwise.
     Fast path: exact normalized match first, then vector similarity.
+
+    Cache policy by mode:
+    - Deep mode (fast_mode=False): NEVER use cache. Deep mode runs a full
+      multi-loop research pipeline and must always return fresh results.
+    - Fast mode (fast_mode=True): Use cache normally.
     """
+    # Deep mode always bypasses cache — it runs a full research pipeline
+    if not fast_mode:
+        logger.debug("Cache lookup skipped: deep mode requested for '%s'", query[:50])
+        return None
+
     if not _cache_enabled():
         return None
 
@@ -62,7 +72,7 @@ async def cache_lookup(query: str) -> dict | None:
         import psycopg
 
         # Fast path: exact text match (no embedding needed)
-        with span("cache.lookup", span_kind="RETRIEVER", input_value=query[:100], attributes={"cache.type": "exact"}):
+        with span("cache.lookup", span_kind="RETRIEVER", input_value=query[:100], attributes={"cache.type": "exact", "fast_mode": fast_mode}):
             async with await psycopg.AsyncConnection.connect(settings.database_url) as conn, conn.cursor() as cur:
                 await cur.execute(
                     """
@@ -75,7 +85,6 @@ async def cache_lookup(query: str) -> dict | None:
                 )
                 row = await cur.fetchone()
                 if row:
-                    # Bump hit count in background (non-blocking)
                     await cur.execute(
                         "UPDATE public.search_cache SET hit_count = hit_count + 1 WHERE id = %s",
                         (row[0],),

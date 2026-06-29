@@ -696,6 +696,16 @@
   border: 1px solid var(--glass-border);
 }
 
+/* ─── Mobile breathing dot (used in MobileActivityFeed) ─────────────────── */
+@keyframes mobile-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%       { transform: scale(1.6); opacity: 0.15; }
+}
+
+.mobile-breathe {
+  animation: mobile-breathe 1.8s ease-in-out infinite;
+}
+
 /* ============ Mobile: clean, minimal, no distractions ============ */
 @media (max-width: 1023px) {
   /* Kill all background animations */
@@ -717,10 +727,15 @@
     transform: none !important;
   }
 
-  /* No pulsing animations on skeleton loaders */
+  /* No pulsing animations on skeleton loaders (keep mobile-breathe alive) */
   .animate-pulse {
     animation: none !important;
     opacity: 0.5;
+  }
+
+  /* Keep mobile breathing dot alive — it's the only intentional animation */
+  .mobile-breathe {
+    animation: mobile-breathe 1.8s ease-in-out infinite !important;
   }
 
   /* No shimmer or gradient animations */

@@ -77,17 +77,23 @@ export function GeneralResult({
 
       {/* TL;DR Summary Card */}
       {data.tldr && (
-        <div className="p-5 glass-strong border-l-2 border-accent animate-in fade-in duration-500">
+        <div
+          className="p-5 glass-strong fade-up-enhanced"
+          style={{
+            borderLeft: '3px solid',
+            borderImage: 'linear-gradient(to bottom, oklch(0.6 0.22 270), oklch(0.65 0.22 300)) 1',
+          }}
+        >
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-1.5">
-            <Lightbulb className="h-3.5 w-3.5" /> Summary
+            <Lightbulb className="h-5 w-5 text-accent drop-shadow-[0_0_6px_oklch(0.6_0.22_270)]" /> Summary
           </div>
-          <p className="text-base leading-relaxed">{data.tldr}</p>
+          <p className="text-lg leading-relaxed">{data.tldr}</p>
         </div>
       )}
 
       {/* Key Facts as Cards */}
       {!!data.key_facts?.length && (
-        <div className="space-y-3 animate-in fade-in duration-500 delay-150">
+        <div className="space-y-3 fade-up-enhanced">
           <h2 className="font-display text-sm uppercase tracking-widest text-muted-foreground flex items-center gap-2">
             <List className="h-4 w-4" /> Key Points
           </h2>
@@ -95,9 +101,10 @@ export function GeneralResult({
             {data.key_facts.slice(0, 6).map((f, i) => (
               <div
                 key={i}
-                className="glass p-3 flex gap-3 items-start hover:border-accent/30 transition-colors"
+                className="glass-soft rounded-xl p-3 glass-hover flex gap-3 items-start fade-up-enhanced"
+                style={{ animationDelay: `${(i + 1) * 100}ms` }}
               >
-                <span className="text-accent font-mono text-sm shrink-0">{i + 1}</span>
+                <span className="gradient-badge shrink-0">{i + 1}</span>
                 <span className="text-sm leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={factComponents}>
                     {linkifyCitations(f, sources)}
@@ -111,7 +118,7 @@ export function GeneralResult({
 
       {/* Parsed Sections - Only if we have meaningful sections */}
       {sections.length > 0 && sections.some((s) => s.heading) && (
-        <div className="space-y-4 animate-in fade-in duration-500 delay-300">
+        <div className="space-y-4">
           {sections.map((section, i) => {
             const items = extractItems(section.content);
             const hasItems = items.length > 0;
@@ -120,28 +127,36 @@ export function GeneralResult({
             if (!section.heading && !hasItems && !plainContent) return null;
 
             return (
-              <div key={i} className="glass p-4 space-y-3">
-                {section.heading && (
-                  <h3 className="font-display font-medium text-base flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-accent" />
-                    {section.heading}
-                  </h3>
+              <div key={i}>
+                {i > 0 && (
+                  <div className="border-t border-border/30 mb-4" />
                 )}
-                {hasItems && (
-                  <ul className="space-y-2">
-                    {items.map((item, j) => (
-                      <li key={j} className="flex gap-2 text-sm">
-                        <ArrowRight className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                        <span className="leading-relaxed">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {plainContent && !hasItems && (
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {plainContent.slice(0, 300)}
-                  </p>
-                )}
+                <div
+                  className="glass p-4 space-y-3 fade-up-enhanced"
+                  style={{ animationDelay: `${(i + 1) * 120}ms` }}
+                >
+                  {section.heading && (
+                    <h3 className="font-display font-semibold text-base flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-accent" />
+                      {section.heading}
+                    </h3>
+                  )}
+                  {hasItems && (
+                    <ul className="space-y-2">
+                      {items.map((item, j) => (
+                        <li key={j} className="flex gap-2 text-sm">
+                          <ArrowRight className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                          <span className="leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {plainContent && !hasItems && (
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {plainContent.slice(0, 300)}
+                    </p>
+                  )}
+                </div>
               </div>
             );
           })}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, ChevronDown } from "lucide-react";
+import { ExternalLink, ChevronDown, Globe, ShieldCheck } from "lucide-react";
 import type { Source } from "@/lib/search/types";
 
 function domainOf(url: string): string {
@@ -23,24 +23,27 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs uppercase tracking-widest text-muted-foreground">
-          Sources · <span className="text-foreground/60">{sources.length}</span>
+        <h3 className="text-sm font-medium flex items-center gap-1.5 text-muted-foreground">
+          <Globe className="h-3.5 w-3.5 text-accent" />
+          Information Sources
+          <span className="text-foreground/50">({sources.length})</span>
         </h3>
       </div>
 
       <ul className="grid sm:grid-cols-2 gap-2">
         {visible.map((s, i) => {
           const d = domainOf(s.url);
+          const isTrusted = /\.(gov|edu|org)$/.test(d);
           return (
-            <li key={i}>
+            <li key={i} className="fade-up-enhanced" style={{ animationDelay: `${i * 80}ms` }}>
               <a
                 href={s.url}
                 target="_blank"
                 rel="noreferrer"
-                className="group flex items-start gap-3 p-3 rounded-lg border border-white/8 bg-white/[0.03] hover:bg-white/[0.07] hover:border-accent/30 transition-all"
+                className="group flex items-start gap-3 p-3 rounded-lg glass-hover border border-white/8 bg-white/[0.03] hover:bg-white/[0.07] hover:border-accent/30 transition-all"
               >
                 {/* Number badge */}
-                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-[10px] font-semibold text-accent/70 mt-0.5">
+                <span className="shrink-0 flex h-5 w-5 items-center justify-center rounded-full gradient-badge text-[10px] font-semibold text-white mt-0.5">
                   {i + 1}
                 </span>
 
@@ -56,7 +59,10 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
                   <div className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-accent transition-colors pr-4">
                     {s.title}
                   </div>
-                  <div className="text-[11px] text-muted-foreground truncate mt-0.5">{d}</div>
+                  <div className="text-[11px] text-muted-foreground truncate mt-0.5 flex items-center gap-1">
+                    {d}
+                    {isTrusted && <ShieldCheck className="h-3 w-3 text-emerald-400/70" />}
+                  </div>
                 </div>
 
                 <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-accent/60 shrink-0 mt-0.5 transition-colors" />
@@ -69,7 +75,7 @@ export function SourcesGrid({ sources }: { sources: Source[] }) {
       {hidden > 0 && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground transition rounded-lg border border-white/8 hover:border-white/15 hover:bg-white/[0.03]"
+          className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground transition rounded-full glass-soft hover:glass"
         >
           <ChevronDown
             className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}

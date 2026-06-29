@@ -11,23 +11,21 @@ interface Blob {
 }
 
 const COLORS = [
-  "oklch(0.7 0.25 270)", // Purple
+  "oklch(0.7 0.25 270)", // Purple / Indigo
   "oklch(0.75 0.2 200)", // Cyan
-  "oklch(0.7 0.22 320)", // Magenta
+  "oklch(0.7 0.22 320)", // Magenta / Pink
   "oklch(0.75 0.18 165)", // Teal
-  "oklch(0.7 0.2 248)", // Blue
-  "oklch(0.75 0.22 30)", // Orange
 ];
 
 function generateBlobs(count: number): Blob[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: 150 + Math.random() * 200,
+    x: 15 + Math.random() * 70,
+    y: 10 + Math.random() * 80,
+    size: 180 + Math.random() * 220,
     color: COLORS[i % COLORS.length],
-    delay: Math.random() * 2,
-    duration: 3 + Math.random() * 4,
+    delay: i * 0.5 + Math.random() * 1.5,
+    duration: 4 + Math.random() * 4,
   }));
 }
 
@@ -37,7 +35,7 @@ export function ResearchAnimation({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (active) {
-      setBlobs(generateBlobs(6));
+      setBlobs(generateBlobs(4));
       setVisible(true);
     } else {
       // Fade out smoothly
@@ -50,7 +48,7 @@ export function ResearchAnimation({ active }: { active: boolean }) {
 
   return (
     <div className={`research-animation-container ${active ? "active" : "fading"}`}>
-      {/* Animated color blobs */}
+      {/* Animated color blobs — reduced to 4 for performance */}
       {blobs.map((blob) => (
         <div
           key={blob.id}

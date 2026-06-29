@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
 import { ResearchPanel, CacheHitBanner } from "@/components/results/ResearchPanel";
 import { ResearchAnimation } from "@/components/results/ResearchAnimation";
@@ -331,34 +332,59 @@ export function ResultsStream({ query }: { query: string }) {
             </div>
           </div>
         ) : partial ? (
-          <div className="p-6 glass-strong border-l-2 border-accent/50 animate-in fade-in duration-500 relative overflow-hidden">
+          <div className="p-6 glass gradient-border border-l-[3px] animate-in fade-in duration-500 relative overflow-hidden" style={{ borderImage: 'linear-gradient(to bottom, oklch(0.6 0.22 270), oklch(0.65 0.22 300)) 1' }}>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-accent/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
             <div className="text-xs uppercase tracking-widest text-accent mb-3 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
-              Drafting answer
+              <span className="font-semibold">Live</span>
+              <span className="text-muted-foreground">· Synthesizing</span>
             </div>
             <div className="relative max-h-48 overflow-hidden">
-              <p className="text-base leading-relaxed whitespace-pre-wrap text-muted-foreground/80 select-none">
+              <p className="text-base leading-relaxed whitespace-pre-wrap text-muted-foreground/80 select-none typing-cursor">
                 {partial}
               </p>
-              <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background/95 via-background/60 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background via-background/70 to-transparent pointer-events-none" />
             </div>
           </div>
         ) : !error ? (
           <div className="space-y-3">
-            <div className="h-5 w-2/3 bg-white/10 rounded animate-pulse" />
-            <div className="h-4 w-1/2 bg-white/10 rounded animate-pulse" />
-            <div className="h-40 w-full glass animate-pulse mt-4" />
+            <div className="h-6 w-3/4 glass-skeleton rounded animate-pulse" />
+            <div className="h-4 w-1/2 glass-skeleton rounded animate-pulse" style={{ animationDelay: '100ms' }} />
+            <div className="h-44 w-full glass-skeleton rounded animate-pulse mt-4" style={{ animationDelay: '200ms' }} />
             <div className="grid sm:grid-cols-2 gap-3 mt-2">
-              <div className="h-28 glass animate-pulse" />
-              <div className="h-28 glass animate-pulse" />
+              <div className="h-32 glass-skeleton rounded animate-pulse" style={{ animationDelay: '300ms' }} />
+              <div className="h-32 glass-skeleton rounded animate-pulse" style={{ animationDelay: '400ms' }} />
             </div>
           </div>
         ) : null}
       </div>
+
+      {/* Follow-up query suggestions */}
+      {(() => {
+        const followups = events.filter(e => e.type === 'reflection').flatMap(e => (e as any).followup_queries ?? []).slice(0, 3);
+        return done && final && followups.length > 0 ? (
+          <div className="mx-auto max-w-3xl w-full pt-6 fade-up-enhanced relative z-10" style={{ animationDelay: '700ms' }}>
+            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5" />
+              Related questions
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {followups.map((q: string, i: number) => (
+                <a
+                  key={i}
+                  href={`/results?q=${encodeURIComponent(q)}`}
+                  className="text-sm px-4 py-2 rounded-full glass-soft glass-hover text-muted-foreground hover:text-foreground transition"
+                >
+                  {q}
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : null;
+      })()}
     </>
   );
 }

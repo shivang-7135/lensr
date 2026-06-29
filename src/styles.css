@@ -533,3 +533,165 @@
     opacity: 0.3;
   }
 }
+
+/* ============ Enhanced UI utilities ============ */
+
+/* Animated gradient progress bar — thin bar flowing indigo → purple → pink */
+@utility gradient-progress-bar {
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    oklch(0.6 0.22 270),
+    oklch(0.65 0.22 300),
+    oklch(0.7 0.2 340),
+    oklch(0.6 0.22 270)
+  );
+  background-size: 200% 100%;
+  animation: gradient-flow 2s linear infinite;
+}
+
+@keyframes gradient-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Gradient badge — numbered circle with gradient bg */
+@utility gradient-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  background: linear-gradient(135deg, oklch(0.6 0.22 270), oklch(0.65 0.22 300));
+  box-shadow: 0 0 12px oklch(0.6 0.22 270 / 40%);
+  flex-shrink: 0;
+}
+
+/* Glass metric — compact stat badge */
+@utility glass-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: var(--glass-tint-soft);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Timeline vertical connecting line */
+@utility timeline-line {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 1.5rem;
+    bottom: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: linear-gradient(
+      to bottom,
+      oklch(0.6 0.22 270 / 40%),
+      oklch(0.65 0.22 300 / 20%),
+      transparent
+    );
+  }
+}
+
+/* Typing cursor — blinking bar for partial text */
+@utility typing-cursor {
+  &::after {
+    content: '▎';
+    display: inline;
+    color: var(--accent);
+    animation: cursor-blink 0.8s ease-in-out infinite;
+    margin-left: 1px;
+  }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Pulse glow — accent-colored breathing glow */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px oklch(0.6 0.22 270 / 30%);
+  }
+  50% {
+    box-shadow: 0 0 20px oklch(0.6 0.22 270 / 60%), 0 0 40px oklch(0.65 0.22 300 / 30%);
+  }
+}
+
+@utility pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Gradient border — animated border for glass cards */
+@utility gradient-border {
+  position: relative;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      oklch(0.6 0.22 270 / 50%),
+      oklch(0.65 0.22 300 / 30%),
+      oklch(0.7 0.2 340 / 50%)
+    );
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* Enhanced fade-up with more polish */
+@keyframes fade-up-enhanced {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@utility fade-up-enhanced {
+  animation: fade-up-enhanced 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Glass skeleton — shimmer loading placeholder */
+@keyframes glass-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@utility glass-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--glass-tint-soft) 0%,
+    oklch(1 0 0 / 12%) 50%,
+    var(--glass-tint-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: glass-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+}

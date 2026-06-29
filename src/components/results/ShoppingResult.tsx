@@ -7,7 +7,7 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
   return (
     <div className="space-y-6">
       {data.tldr && (
-        <div className="p-5 glass-strong">
+        <div className="p-5 glass-strong border-l-2 border-l-transparent" style={{ borderImage: 'linear-gradient(to bottom, oklch(0.65 0.25 275), oklch(0.65 0.25 310)) 1' }}>
           <div className="text-xs uppercase tracking-widest text-accent mb-1 flex items-center gap-1">
             <Award className="h-3 w-3" /> Recommendation
           </div>
@@ -32,8 +32,8 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
             return (
               <div
                 key={i}
-                className={`glass glass-hover overflow-hidden flex flex-col fade-up ${isTop ? "ring-1 ring-accent/40" : ""}`}
-                style={{ animationDelay: `${i * 60}ms` }}
+                className={`glass glass-hover overflow-hidden flex flex-col fade-up-enhanced ${isTop ? "ring-1 ring-accent/40" : ""}`}
+                style={{ animationDelay: `${i * 150}ms` }}
               >
                 {p.image_url && (
                   <div className="aspect-[16/9] bg-white/5 overflow-hidden">
@@ -50,8 +50,13 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-display font-semibold leading-tight">{p.name}</h3>
                     {isTop && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground shrink-0">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white shrink-0 shadow-[0_0_8px_oklch(0.55_0.25_290/0.3)]">
                         Top pick
+                      </span>
+                    )}
+                    {i === 1 && !isTop && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500/80 to-teal-500/80 text-white shrink-0 shadow-[0_0_8px_oklch(0.65_0.18_165/0.3)]">
+                        Best value
                       </span>
                     )}
                   </div>
@@ -89,7 +94,7 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
                           href={b.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full bg-accent text-accent-foreground hover:opacity-90 transition"
+                          className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:opacity-90 transition shadow-sm"
                         >
                           <ShoppingBag className="h-3 w-3" /> {b.label}
                           <ExternalLink className="h-3 w-3 opacity-70" />
@@ -105,8 +110,8 @@ export function ShoppingResult({ data }: { data: ShoppingStructured }) {
       )}
 
       {!!data.comparison_table?.length && (
-        <div className="glass p-4">
-          <h2 className="font-display text-lg mb-3">Comparison</h2>
+        <div className="glass-strong p-4 border-l-2 border-l-transparent" style={{ borderImage: 'linear-gradient(to bottom, oklch(0.65 0.25 275), oklch(0.65 0.25 310)) 1' }}>
+          <h2 className="font-display text-lg mb-3">Quick Compare</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-xs uppercase tracking-wider text-muted-foreground">

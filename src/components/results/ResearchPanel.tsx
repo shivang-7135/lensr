@@ -67,44 +67,65 @@ export function ResearchPanel({ events, done }: { events: StreamEvent[]; done: b
   const elapsedSec = (elapsed / 1000).toFixed(1);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+    <div className={`overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition-all duration-300 ${!done ? "pulse-glow" : ""}`}>
+      {!done && <div className="gradient-progress-bar w-full" />}
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5 transition"
       >
         <div className="flex items-center gap-2 min-w-0">
           {done ? (
-            <Sparkles className="h-4 w-4 text-accent shrink-0" />
+            <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
           ) : (
             <Loader2 className="h-4 w-4 text-accent shrink-0 animate-spin" />
           )}
-          <span className="text-sm font-medium truncate">
-            {done ? "Research complete" : "Researching…"}
+          <span className="text-sm font-medium truncate flex items-center gap-2 flex-wrap">
+            {done ? (
+              <span className="text-emerald-400">
+                Research complete · {sourcesFound} {sourcesFound === 1 ? "source" : "sources"} · {elapsedSec}s
+              </span>
+            ) : (
+              <>
+                <span>Researching…</span>
+                <span className="flex items-center gap-1.5 ml-2">
+                  {sourcesFound > 0 && (
+                    <span className="glass-metric text-sky-400 font-sans text-xs">
+                      {sourcesFound} sources
+                    </span>
+                  )}
+                  {loops > 0 && (
+                    <span className="glass-metric text-violet-400 font-sans text-xs">
+                      {loops + 1} passes
+                    </span>
+                  )}
+                  {elapsed > 0 && (
+                    <span className="glass-metric text-muted-foreground font-sans text-xs flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {elapsedSec}s
+                    </span>
+                  )}
+                </span>
+              </>
+            )}
           </span>
-          <div className="flex items-center gap-2 shrink-0">
-            {sourcesFound > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {sourcesFound} sources
-                {loops > 0 ? ` · ${loops + 1} passes` : ""}
-              </span>
-            )}
-            {elapsed > 0 && (
-              <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {done ? `${elapsedSec}s` : `${elapsedSec}s…`}
-              </span>
-            )}
-          </div>
         </div>
         <ChevronDown
           className={`h-4 w-4 text-muted-foreground transition-transform duration-200 shrink-0 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open && (
+
+      {/* Smooth expand / collapse */}
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: open ? "2000px" : "0px",
+          opacity: open ? 1 : 0,
+        }}
+      >
         <div className="px-4 pb-4 pt-1 border-t border-white/10">
           <AgentTimeline events={events} done={done} />
         </div>
-      )}
+      </div>
     </div>
   );
 }

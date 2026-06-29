@@ -314,13 +314,13 @@ export function ResultsStream({ query }: { query: string }) {
         <div className="flex-1 min-w-0 flex flex-col pt-1">
           <div className="mb-4">
             {intent && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full bg-[#27272a] text-[#f4f4f5] font-bold border border-[#3f3f46]">
+              <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full bg-card dark:bg-[#27272a] text-card-foreground dark:text-[#f4f4f5] font-bold border border-border dark:border-[#3f3f46]">
                 <Sparkles className="h-3 w-3" />
                 {INTENT_LABEL[intent]} INTENT
               </span>
             )}
           </div>
-          <h1 className="font-sans text-3xl sm:text-4xl tracking-tight font-semibold text-[#fafafa] mb-8">
+          <h1 className="font-sans text-3xl sm:text-4xl tracking-tight font-semibold text-foreground dark:text-[#fafafa] mb-8">
             {query}
           </h1>
 
@@ -333,40 +333,40 @@ export function ResultsStream({ query }: { query: string }) {
         {final && intent ? (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {renderStructured(intent, final.structured, final.markdown, final.sources)}
-            <div className="pt-8 border-t border-[#27272a] animate-in fade-in duration-700 delay-500">
+            <div className="pt-8 border-t border-border dark:border-[#27272a] animate-in fade-in duration-700 delay-500">
               <SourcesGrid sources={final.sources} />
             </div>
           </div>
         ) : partial ? (
           <div className="flex flex-col animate-in fade-in duration-500">
-            <div className="text-[11px] font-bold tracking-widest text-[#a1a1aa] mb-4 flex items-center gap-2">
+            <div className="text-[11px] font-bold tracking-widest text-muted-foreground dark:text-[#a1a1aa] mb-4 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
               DRAFTING RESPONSE
             </div>
-            <h2 className="text-2xl font-semibold text-[#fafafa] mb-4">Initial Findings</h2>
+            <h2 className="text-2xl font-semibold text-foreground dark:text-[#fafafa] mb-4">Initial Findings</h2>
             
             <div className="relative max-h-96 overflow-hidden">
-              <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-[#d4d4d8] select-none typing-cursor font-sans">
+              <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/80 dark:text-[#d4d4d8] select-none typing-cursor font-sans">
                 {partial}
               </p>
               <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
             </div>
             
             <div className="mt-8 space-y-3 opacity-60">
-              <div className="h-4 w-full bg-[#27272a] rounded animate-pulse" />
-              <div className="h-4 w-[90%] bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '100ms' }} />
-              <div className="h-4 w-[80%] bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '200ms' }} />
+              <div className="h-4 w-full bg-muted dark:bg-[#27272a] rounded animate-pulse" />
+              <div className="h-4 w-[90%] bg-muted dark:bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '100ms' }} />
+              <div className="h-4 w-[80%] bg-muted dark:bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '200ms' }} />
             </div>
           </div>
         ) : !error ? (
           <div className="flex flex-col animate-pulse mt-4 space-y-4">
-             <div className="h-8 w-64 bg-[#27272a] rounded" />
-             <div className="h-4 w-full bg-[#27272a] rounded" />
-             <div className="h-4 w-5/6 bg-[#27272a] rounded" />
-             <div className="h-4 w-4/6 bg-[#27272a] rounded" />
+             <div className="h-8 w-64 bg-muted dark:bg-[#27272a] rounded" />
+             <div className="h-4 w-full bg-muted dark:bg-[#27272a] rounded" />
+             <div className="h-4 w-5/6 bg-muted dark:bg-[#27272a] rounded" />
+             <div className="h-4 w-4/6 bg-muted dark:bg-[#27272a] rounded" />
           </div>
         ) : null}
 
@@ -374,7 +374,7 @@ export function ResultsStream({ query }: { query: string }) {
           const followups = events.filter(e => e.type === 'reflection').flatMap(e => (e as any).followup_queries ?? []).slice(0, 3);
           return done && final && followups.length > 0 ? (
             <div className="pt-12 fade-up-enhanced relative z-10" style={{ animationDelay: '700ms' }}>
-              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#a1a1aa] mb-4 flex items-center gap-2">
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground dark:text-[#a1a1aa] mb-4 flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5" />
                 Related questions
               </h3>
@@ -383,7 +383,7 @@ export function ResultsStream({ query }: { query: string }) {
                   <a
                     key={i}
                     href={`/results?q=${encodeURIComponent(q)}`}
-                    className="text-sm px-4 py-2 rounded-full bg-[#18181b] border border-[#27272a] text-[#a1a1aa] hover:text-[#fafafa] hover:border-[#3f3f46] transition-colors"
+                    className="text-sm px-4 py-2 rounded-full bg-secondary dark:bg-[#18181b] border border-border dark:border-[#27272a] text-secondary-foreground dark:text-[#a1a1aa] hover:text-foreground dark:hover:text-[#fafafa] hover:border-accent dark:hover:border-[#3f3f46] transition-colors"
                   >
                     {q}
                   </a>

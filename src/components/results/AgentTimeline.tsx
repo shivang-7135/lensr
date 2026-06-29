@@ -20,28 +20,48 @@ const STAGE_META: Record<string, { icon: typeof Search; label: string; color: st
   synthesize: { icon: Sparkles, label: "Synthesizing answer", color: "text-accent" },
 };
 
+interface StageGroup {
+  stageEvent: StreamEvent & { type: "stage" };
+  subEvents: StreamEvent[];
+}
+
 export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: boolean }) {
   const [expandedQueries, setExpandedQueries] = useState(false);
 
-  const items = events.filter((e) =>
-    [
-      "stage",
-      "keywords_extracted",
-      "search_plan",
-      "search_results",
-      "scrape_progress",
-      "reflection",
-      "vision_result",
-    ].includes(e.type),
-  );
+  // Group events by stage to keep the timeline clean and hierarchical
+  const groups: StageGroup[] = [];
+  let currentGroup: StageGroup | null = null;
+
+  for (const e of events) {
+    if (e.type === "stage") {
+      currentGroup = {
+        stageEvent: e,
+        subEvents: [],
+      };
+      groups.push(currentGroup);
+    } else if (currentGroup) {
+      if (
+        [
+          "keywords_extracted",
+          "search_plan",
+          "search_results",
+          "scrape_progress",
+          "reflection",
+          "vision_result",
+        ].includes(e.type)
+      ) {
+        currentGroup.subEvents.push(e);
+      }
+    }
+  }
 
   const totalSources = events
     .filter((e) => e.type === "search_results")
     .reduce((a, e) => a + (e.type === "search_results" ? e.count : 0), 0);
 
-  if (!items.length) {
+  if (!groups.length) {
     return (
-      <ol className="space-y-2.5 text-sm">
+      <ol className="space-y-2.5 text-sm list-none pl-0">
         <li className="flex items-center gap-2 animate-pulse text-muted-foreground font-sans text-xs pl-7 relative">
           <div className="absolute left-[calc(0.5rem-3px)] top-1.5 h-1.5 w-1.5 rounded-full bg-accent/60" />
           Planning research…
@@ -53,185 +73,158 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
   const renderIndicator = (isCompleted: boolean, isActive: boolean) => {
     if (isActive) {
       return (
-        <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[1.5px] border-[#93c5fd] bg-[#1e3a8a]">
-          <span className="h-[6px] w-[6px] rounded-full bg-[#93c5fd]"></span>
+        <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[1.5px] border-accent dark:border-[#93c5fd] bg-accent/20 dark:bg-[#1e3a8a]">
+          <span className="h-[6px] w-[6px] rounded-full bg-accent dark:bg-[#93c5fd]"></span>
         </div>
       );
     }
     if (isCompleted) {
       return (
-        <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-transparent border-[1.5px] border-[#3f3f46]">
-          <CheckCircle2 className="h-[18px] w-[18px] text-[#a1a1aa]" strokeWidth={1.5} />
+        <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-transparent border-[1.5px] border-border dark:border-[#3f3f46]">
+          <CheckCircle2 className="h-[18px] w-[18px] text-muted-foreground dark:text-[#a1a1aa]" strokeWidth={1.5} />
         </div>
       );
     }
     return (
-      <div className="absolute left-[-9px] top-1.5 h-[18px] w-[18px] rounded-full bg-transparent border-[1.5px] border-[#3f3f46]" />
+      <div className="absolute left-[-9px] top-1.5 h-[18px] w-[18px] rounded-full bg-transparent border-[1.5px] border-border dark:border-[#3f3f46]" />
     );
   };
 
   return (
-    <ol className="space-y-6 text-sm border-l border-[#333] ml-[9px] mt-[9px]">
-      {items.map((e, i) => {
-        const isLast = i === items.length - 1;
+    <ol className="space-y-6 text-sm border-l border-border/60 dark:border-[#333] ml-[9px] mt-[9px] list-none pl-0">
+      {groups.map((group, i) => {
+        const isLast = i === groups.length - 1;
         const isCompleted = done || !isLast;
         const isActive = !done && isLast;
 
-        /* ── Stage marker ── */
-        if (e.type === "stage") {
-          const isSearch = e.stage.startsWith("search_loop");
-          const meta = STAGE_META[e.stage];
-          const Icon = meta?.icon ?? (isSearch ? Search : Globe);
-          const label =
-            meta?.label ?? (isSearch ? `Search pass ${e.stage.split("_").pop()}` : e.stage);
-          const color = meta?.color ?? (isSearch ? "text-sky-400" : "text-muted-foreground");
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced font-medium"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-sans font-medium text-white/90">{label}</span>
-              </div>
-              {meta?.label && <p className="text-[11px] text-[#a1a1aa] mt-1 pl-0">Identified specific product category and year constraints.</p>}
-            </li>
-          );
-        }
+        const stage = group.stageEvent.stage;
+        const isSearch = stage.startsWith("search_loop");
+        const meta = STAGE_META[stage];
+        const label = meta?.label ?? (isSearch ? `Search pass ${stage.split("_").pop()}` : stage);
 
-        /* ── Keywords ── */
-        if (e.type === "keywords_extracted") {
-          const kws = [...(e.keywords.keywords ?? []), ...(e.keywords.entities ?? [])];
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="space-y-1">
-                {e.keywords.intent_summary && (
-                  <p className="text-[11px] text-[#a1a1aa] font-sans">
-                    {e.keywords.intent_summary}
-                  </p>
-                )}
-              </div>
-            </li>
-          );
-        }
+        return (
+          <li
+            key={i}
+            className="relative pl-7 fade-up-enhanced font-medium"
+            style={{ animationDelay: `${i * 100}ms` }}
+          >
+            {renderIndicator(isCompleted, isActive)}
+            
+            {/* Stage Title */}
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-sans font-medium text-foreground dark:text-white/90">{label}</span>
+            </div>
 
-        /* ── Search plan ── */
-        if (e.type === "search_plan") {
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="space-y-1">
-                <p className="text-[11px] text-[#a1a1aa] font-sans">
-                  Scanned top tech review sites and audiophile forums.
-                </p>
-              </div>
-            </li>
-          );
-        }
+            {/* Nested Sub-Events */}
+            <div className="mt-2 space-y-3 font-normal">
+              {group.subEvents.map((sub, subIdx) => {
+                /* ── Keywords ── */
+                if (sub.type === "keywords_extracted") {
+                  return (
+                    <div key={subIdx} className="space-y-1">
+                      {sub.keywords.intent_summary && (
+                        <p className="text-[11px] text-muted-foreground dark:text-[#a1a1aa] font-sans leading-relaxed">
+                          {sub.keywords.intent_summary}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
 
-        /* ── Search results ── */
-        if (e.type === "search_results") {
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="text-[11px] text-[#a1a1aa] font-sans">
-                Found {e.count} sources{e.loop > 1 && ` (pass ${e.loop})`}
-              </div>
-            </li>
-          );
-        }
+                /* ── Search plan ── */
+                if (sub.type === "search_plan") {
+                  return (
+                    <div key={subIdx} className="space-y-1.5">
+                      <button
+                        onClick={() => setExpandedQueries((v) => !v)}
+                        className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition font-sans"
+                      >
+                        <Search className="h-3 w-3 text-accent" />
+                        <span>{sub.queries.length} search queries planned</span>
+                        <ChevronDown className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`} />
+                      </button>
+                      {expandedQueries && (
+                        <ul className="mt-1 pl-3 border-l border-border dark:border-white/10 text-[11px] text-muted-foreground dark:text-[#a1a1aa] space-y-1 list-none font-sans">
+                          {sub.queries.map((q, qi) => (
+                            <li key={qi} className="flex items-start gap-1">
+                              <span className="text-accent/60 font-mono">{qi + 1}.</span>
+                              <span>{q}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                }
 
-        /* ── Scrape progress ── */
-        if (e.type === "scrape_progress") {
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="flex items-center gap-2 text-xs py-0.5 text-muted-foreground font-sans">
-                <FileText className="h-3.5 w-3.5 shrink-0" />
-                <span>Reading {e.count} pages…</span>
-              </div>
-            </li>
-          );
-        }
+                /* ── Search results ── */
+                if (sub.type === "search_results") {
+                  return (
+                    <div key={subIdx} className="text-[11px] text-muted-foreground dark:text-[#a1a1aa] font-sans flex items-center gap-1.5">
+                      <Globe className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                      <span>Found {sub.count} sources{sub.loop > 1 && ` (pass ${sub.loop})`}</span>
+                    </div>
+                  );
+                }
 
-        /* ── Reflection ── */
-        if (e.type === "reflection") {
-          const sufficient = e.done;
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="glass-soft rounded-lg p-3 border border-white/5 space-y-1">
-                <div
-                  className={`flex items-center gap-1.5 text-xs font-semibold font-sans ${sufficient ? "text-emerald-400" : "text-amber-400"}`}
-                >
-                  {sufficient ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <AlertCircle className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '3s' }} />
-                  )}
-                  <span>{sufficient ? "Sufficient evidence gathered" : "Reflection: Need more data"}</span>
-                </div>
-                {!sufficient && e.missing && (
-                  <p className="text-[11px] text-muted-foreground italic font-sans pl-5 leading-relaxed">
-                    {e.missing}
-                  </p>
-                )}
-              </div>
-            </li>
-          );
-        }
+                /* ── Scrape progress ── */
+                if (sub.type === "scrape_progress") {
+                  return (
+                    <div key={subIdx} className="flex items-center gap-1.5 text-xs text-muted-foreground font-sans">
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span>Reading {sub.count} pages…</span>
+                    </div>
+                  );
+                }
 
-        /* ── Vision result ── */
-        if (e.type === "vision_result") {
-          return (
-            <li
-              key={i}
-              className="relative pl-7 fade-up-enhanced"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {renderIndicator(isCompleted, isActive)}
-              <div className="glass-soft rounded-lg p-3 border border-white/5 space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-blue-400 font-sans">
-                  <Eye className="h-3.5 w-3.5" />
-                  <span>Scene detected</span>
-                </div>
-                {e.scene.scene && (
-                  <p className="text-[11px] text-muted-foreground font-sans leading-relaxed pl-5">{e.scene.scene}</p>
-                )}
-              </div>
-            </li>
-          );
-        }
+                /* ── Reflection ── */
+                if (sub.type === "reflection") {
+                  const sufficient = sub.done;
+                  return (
+                    <div key={subIdx} className="glass-soft rounded-lg p-3 border border-border dark:border-white/5 space-y-1 bg-card/30">
+                      <div className={`flex items-center gap-1.5 text-xs font-semibold font-sans ${sufficient ? "text-emerald-500 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"}`}>
+                        {sufficient ? (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <AlertCircle className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: '3s' }} />
+                        )}
+                        <span>{sufficient ? "Sufficient evidence gathered" : "Reflection: Need more data"}</span>
+                      </div>
+                      {!sufficient && sub.missing && (
+                        <p className="text-[11px] text-muted-foreground italic font-sans pl-5 leading-relaxed">
+                          {sub.missing}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
 
-        return null;
+                /* ── Vision result ── */
+                if (sub.type === "vision_result") {
+                  return (
+                    <div key={subIdx} className="glass-soft rounded-lg p-3 border border-border dark:border-white/5 space-y-1 bg-card/30">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-blue-500 dark:text-blue-400 font-sans">
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Scene detected</span>
+                      </div>
+                      {sub.scene.scene && (
+                        <p className="text-[11px] text-muted-foreground font-sans leading-relaxed pl-5">{sub.scene.scene}</p>
+                      )}
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+            </div>
+          </li>
+        );
       })}
 
       {done && totalSources > 0 && (
         <li
-          className="relative pl-7 flex items-center gap-2 text-xs text-emerald-400 font-semibold mt-2 pt-3 border-t border-white/10 fade-up-enhanced"
-          style={{ animationDelay: `${items.length * 100}ms` }}
+          className="relative pl-7 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold mt-2 pt-3 border-t border-border dark:border-white/10 fade-up-enhanced"
+          style={{ animationDelay: `${groups.length * 100}ms` }}
         >
           <div className="absolute left-[calc(0.5rem-6px)] top-3 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_0_12px_oklch(0.62_0.16_165/0.5)]">
             <CheckCircle2 className="h-2.5 w-2.5 text-white" />
@@ -240,8 +233,8 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
         </li>
       )}
       {!done && (
-        <li className="relative pl-7 flex items-center gap-2 text-[13px] font-sans font-medium text-[#52525b]">
-          <div className="absolute left-[-5px] top-[7px] h-[10px] w-[10px] rounded-full bg-[#27272a]" />
+        <li className="relative pl-7 flex items-center gap-2 text-[13px] font-sans font-medium text-muted-foreground dark:text-[#52525b]">
+          <div className="absolute left-[-5px] top-[7px] h-[10px] w-[10px] rounded-full bg-muted dark:bg-[#27272a]" />
           <span>Synthesizing answer...</span>
         </li>
       )}

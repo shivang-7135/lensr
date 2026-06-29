@@ -267,6 +267,14 @@ async def _reflect(query: str, evidence: list[dict], loop: int) -> dict:
 
 
 async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentConfig) -> dict:
+    # Check fast mode context
+    _is_fast = False
+    try:
+        from ..router_graph import fast_mode_var
+        _is_fast = fast_mode_var.get()
+    except LookupError:
+        pass
+
     limited_evidence = evidence[:8]
 
     # Prioritise scraped sources first (richer content), then snippet-only
@@ -284,9 +292,9 @@ async def _synthesize(query: str, kw: dict, evidence: list[dict], cfg: IntentCon
         )
     context = "\n\n---\n\n".join(context_parts)
 
-    # Use Sonnet for all intents — Haiku was failing to produce valid structured JSON.
-    # Sonnet is more reliable at following complex schema hints.
-    use_fast_model = cfg.name in {"weather", "news", "sports", "general"}
+    # In fast mode: use Haiku for ALL intents (2-3x faster response)
+    # In deep mode: use Sonnet for complex intents, Haiku for simple lookups
+    use_fast_model = _is_fast or cfg.name in {"weather", "news", "sports", "general"}
 
     sys = (
         f"Today is {_today_str()}.\n\n"
@@ -407,23 +415,50 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         pass
 
     if fast_mode:
+        # ⚡ FAST MODE — Maximum parallelism, zero scraping
+        # Strategy: grab search results (already running in background from router),
+        # fire additional seed queries in parallel, synthesize immediately from snippets.
+        # This eliminates: (1) keyword extraction LLM call, (2) scraping wait (4s+), (3) reflection loop
         yield {"type": "stage", "stage": "plan"}
+
+        # Retrieve the generic search task that started during intent classification
+        try:
+            from ..router_graph import generic_search_task_var
+            generic_search_task = generic_search_task_var.get()
+        except LookupError:
+            generic_search_task = None
+
+        # Fire seed queries in parallel with the already-running generic search
+        seed_queries = cfg.seed_queries(query)[:2]
+        seed_search_task = asyncio.create_task(_fanout_search(seed_queries))
+
+        all_queries = [query] + seed_queries
         kw = {
             "keywords": [],
             "entities": [],
             "constraints": [],
-            "intent_summary": "Fast parallel search",
+            "intent_summary": "Fast parallel search — snippet synthesis",
         }
-        planned_queries = [query] + cfg.seed_queries(query)[:2]
         yield {"type": "keywords_extracted", "keywords": kw}
-        yield {"type": "search_plan", "queries": planned_queries}
+        yield {"type": "search_plan", "queries": all_queries}
 
         yield {"type": "stage", "stage": "search_loop_1"}
-        for q in planned_queries:
+        for q in all_queries:
             yield {"type": "tool_call", "tool": "google_search", "input": q}
 
-        evidence = await _fanout_search(planned_queries)
-        evidence = evidence[:3]
+        # Await both searches concurrently (both already running)
+        generic_results = (await generic_search_task) if generic_search_task else []
+        seed_results = await seed_search_task
+
+        # Merge and deduplicate results
+        evidence: list[dict] = []
+        seen_urls: set[str] = set()
+        for r in list(generic_results) + list(seed_results):
+            url = r.get("url") or r.get("link")
+            if url and url not in seen_urls:
+                evidence.append({"title": r.get("title", ""), "url": url, "snippet": r.get("snippet", ""), "body": ""})
+                seen_urls.add(url)
+        evidence = evidence[:6]  # cap at 6 for speed
 
         yield {
             "type": "search_results",
@@ -432,16 +467,12 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
             "sample": [{"title": r["title"], "url": r["url"]} for r in evidence],
         }
 
-        to_scrape = [e for e in evidence if "body" not in e][:2]
-        if to_scrape:
-            yield {"type": "scrape_progress", "count": len(to_scrape)}
-            scraped = await _scrape(to_scrape, len(to_scrape))
-            by_url = {s["url"]: s for s in scraped}
-            for i, e in enumerate(evidence):
-                if e["url"] in by_url:
-                    evidence[i] = by_url[e["url"]]
-
+        # ⚡ NO SCRAPING in fast mode — synthesize directly from snippets
+        # Snippets from Serper already contain 150-200 chars of relevant text each
+        # This saves 2-4 seconds of network I/O
         yield {"type": "stage", "stage": "synthesize"}
+
+        # Start synthesis immediately with snippet-only evidence
         structured = await _synthesize(query, kw, evidence, cfg)
         sources = [{"title": e["title"], "url": e["url"]} for e in evidence]
 
@@ -454,6 +485,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
             pipeline_span.set_attribute("sources.count", len(sources))
             pipeline_span.set_attribute("output.value", tldr[:500])
             pipeline_span.set_attribute("output.mime_type", "text/plain")
+            pipeline_span.set_attribute("fast_mode", True)
         if ctx:
             ctx.__exit__(None, None, None)
 

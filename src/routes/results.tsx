@@ -43,28 +43,24 @@ function ResultsPage() {
         </div>
 
         {q && (
-          <div className="flex items-center justify-between gap-3 mb-6 sm:mb-8 p-3 sm:p-4 rounded-xl border border-border dark:border-white/5 bg-card/30 dark:bg-[#161616]/30 backdrop-blur-sm">
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-xs sm:text-sm font-semibold text-foreground dark:text-white/90">Speed</span>
-              <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">Fast parallel (~8s) vs deep research</span>
-            </div>
-            <div className="flex bg-muted/40 dark:bg-[#18181b]/50 p-1 rounded-full border border-border/50 dark:border-white/5 shadow-inner shrink-0">
+          <div className="flex items-center justify-end gap-2 mb-4 sm:mb-6">
+            <div className="flex bg-muted/40 dark:bg-[#18181b]/60 p-0.5 sm:p-1 rounded-full border border-border/30 dark:border-white/5">
               <button
                 onClick={() => setFastMode(true)}
-                className={`text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full transition-all duration-300 font-medium ${
+                className={`text-[10px] sm:text-xs px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-medium transition-colors ${
                   fastMode
-                    ? "bg-[#27272a] text-[#f4f4f5] dark:bg-[#e4e4e7] dark:text-[#09090b] shadow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground"
                 }`}
               >
                 Fast
               </button>
               <button
                 onClick={() => setFastMode(false)}
-                className={`text-[11px] sm:text-xs px-3 sm:px-4 py-1.5 rounded-full transition-all duration-300 font-medium ${
+                className={`text-[10px] sm:text-xs px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-medium transition-colors ${
                   !fastMode
-                    ? "bg-[#27272a] text-[#f4f4f5] dark:bg-[#e4e4e7] dark:text-[#09090b] shadow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-muted-foreground"
                 }`}
               >
                 Deep

@@ -228,11 +228,6 @@ async def _classify(query: str) -> Intent:
 
 
 async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]:
-    # Start a generic search immediately (runs concurrently with classification)
-    generic_search_task = asyncio.create_task(google_search(query, num=3))
-    
-    # Store it in context variable so the inner pipeline can retrieve it without signature changes
-    generic_search_task_var.set(generic_search_task)
     fast_mode_var.set(fast_mode)
 
     # --- Semantic cache check (instant response if hit) ---
@@ -242,12 +237,10 @@ async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]
         cached = None
 
     if cached:
-        generic_search_task.cancel()  # Save resources on cache hit
         # Cache hit! Skip entire pipeline — return instantly
         intent = cached["intent"]
         yield {"type": "intent_detected", "intent": intent}
         yield {"type": "cache_hit", "cached": True}
-        # Stream the tldr as partial_answer for progressive UI
         tldr = cached["structured"].get("tldr") or ""
         if tldr:
             yield {"type": "partial_answer", "delta": tldr + "\n\n"}
@@ -262,7 +255,16 @@ async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]
         return
 
     # --- Cache miss: full pipeline ---
-    intent = await _classify(query)
+    # ⚡ KEY OPTIMIZATION: Run intent classification AND initial search IN PARALLEL
+    # Classification takes ~1-2s, search takes ~1-2s. Running concurrently saves the full overlap.
+    classify_task = asyncio.create_task(_classify(query))
+    generic_search_task = asyncio.create_task(google_search(query, num=5 if fast_mode else 3))
+
+    # Store search task for the inner pipeline to pick up
+    generic_search_task_var.set(generic_search_task)
+
+    # Wait for classification (search continues in background)
+    intent = await classify_task
     yield {"type": "intent_detected", "intent": intent}
 
     # Collect the final result for caching

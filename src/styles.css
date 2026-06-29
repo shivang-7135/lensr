@@ -696,28 +696,51 @@
   border: 1px solid var(--glass-border);
 }
 
-/* ============ Mobile stability ============ */
+/* ============ Mobile: clean, minimal, no distractions ============ */
 @media (max-width: 1023px) {
-  /* Prevent animation overflow on mobile — contain transforms and overflows */
+  /* Kill all background animations */
   .research-animation-container {
     display: none !important;
   }
 
-  /* Prevent horizontal overflow from animated elements */
+  /* Disable all entrance animations — content just appears */
   .animate-in {
-    overflow: hidden;
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 
-  /* Reduce slide-in distance on mobile to prevent layout jumps */
-  [class*="slide-in-from-bottom"] {
-    --tw-enter-translate-y: 8px !important;
-  }
-
-  /* Contain the fade-up animation to prevent overflow */
   .fade-up,
   .fade-up-enhanced {
-    overflow: visible;
-    will-change: opacity, transform;
-    transform: translateZ(0);
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* No pulsing animations on skeleton loaders */
+  .animate-pulse {
+    animation: none !important;
+    opacity: 0.5;
+  }
+
+  /* No shimmer or gradient animations */
+  .glass-skeleton {
+    animation: none !important;
+    background: var(--glass-tint-soft) !important;
+  }
+
+  .gradient-progress-bar {
+    animation: none !important;
+  }
+
+  /* Kill typing cursor on mobile */
+  .typing-cursor::after {
+    display: none !important;
+  }
+
+  /* Disable ping animations */
+  .animate-ping {
+    animation: none !important;
+    opacity: 0 !important;
   }
 }

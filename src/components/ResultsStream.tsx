@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Sparkles, Clock, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Clock, Zap } from "lucide-react";
 import type { StreamEvent, SearchIntent, StructuredResult } from "@/lib/search/types";
 import { ResearchPanel, CacheHitBanner } from "@/components/results/ResearchPanel";
 import { ResearchAnimation } from "@/components/results/ResearchAnimation";
@@ -330,29 +330,22 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
           </div>
         </div>
 
-        {/* Mobile: Compact research status */}
+        {/* Mobile: Compact status bar — minimal, no animations */}
         <div className="lg:hidden w-full order-first">
           {cached ? (
             <CacheHitBanner query={query} />
           ) : !done && !error ? (
-            <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-border/50 dark:border-white/10 bg-card/30 dark:bg-[#161616]/50 mb-3">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-                </span>
-                <span className="text-xs text-muted-foreground font-medium">Researching…</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground font-mono">
-                <Clock className="h-3 w-3" />
+            <div className="flex items-center justify-between px-3 py-2 rounded-md bg-muted/30 dark:bg-[#1a1a1a] mb-3">
+              <span className="text-xs text-muted-foreground">Searching…</span>
+              <span className="text-xs tabular-nums text-muted-foreground font-mono">
                 {(elapsed / 1000).toFixed(1)}s
-              </div>
+              </span>
             </div>
           ) : done && finalElapsed && !cached ? (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 mb-3">
-              <Zap className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="text-xs text-emerald-500 dark:text-emerald-400 font-medium">
-                Completed in {(finalElapsed / 1000).toFixed(1)}s
+            <div className="flex items-center justify-between px-3 py-2 rounded-md bg-emerald-500/5 mb-3">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">Done</span>
+              <span className="text-xs tabular-nums text-emerald-600 dark:text-emerald-400 font-mono">
+                {(finalElapsed / 1000).toFixed(1)}s
               </span>
             </div>
           ) : null}
@@ -360,28 +353,26 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
 
         {/* Right Column: Main Content */}
         <div className="flex-1 min-w-0 flex flex-col pt-1 overflow-hidden">
-          <div className="mb-4 flex items-center gap-2 flex-wrap">
+          <div className="mb-3 sm:mb-4 flex items-center gap-2 flex-wrap">
             {intent && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-full bg-card dark:bg-[#27272a] text-card-foreground dark:text-[#f4f4f5] font-bold border border-border dark:border-[#3f3f46]">
-                <Sparkles className="h-3 w-3" />
-                {INTENT_LABEL[intent]} INTENT
+              <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] uppercase tracking-wider px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-muted/50 dark:bg-[#1a1a1a] text-muted-foreground font-medium border border-border/40 dark:border-[#2a2a2a]">
+                {INTENT_LABEL[intent]}
               </span>
             )}
-            {/* Live timer / final elapsed badge */}
+            {/* Timer — desktop only for live, both for final */}
             {!done && !error && !cached && (
-              <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full bg-muted/50 dark:bg-[#18181b] text-muted-foreground font-mono tabular-nums border border-border/50 dark:border-[#27272a]">
-                <Clock className="h-3 w-3 animate-pulse" />
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full bg-muted/50 dark:bg-[#18181b] text-muted-foreground font-mono tabular-nums border border-border/50 dark:border-[#27272a]">
+                <Clock className="h-3 w-3" />
                 {(elapsed / 1000).toFixed(1)}s
               </span>
             )}
             {done && finalElapsed && !cached && (
-              <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono tabular-nums border border-emerald-500/20">
-                <Zap className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono tabular-nums">
                 {(finalElapsed / 1000).toFixed(1)}s
               </span>
             )}
           </div>
-          <h1 className="font-sans text-2xl sm:text-4xl tracking-tight font-semibold text-foreground dark:text-[#fafafa] mb-5 sm:mb-8 break-words">
+          <h1 className="font-sans text-xl sm:text-4xl tracking-tight font-semibold text-foreground dark:text-[#fafafa] mb-4 sm:mb-8 break-words">
             {query}
           </h1>
 
@@ -392,67 +383,52 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
         )}
 
         {final && intent ? (
-          <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="space-y-6 sm:space-y-8">
             {renderStructured(intent, final.structured, final.markdown, final.sources)}
-            <div className="pt-8 border-t border-border dark:border-[#27272a] animate-in fade-in duration-700 delay-500">
+            <div className="pt-6 sm:pt-8 border-t border-border dark:border-[#27272a]">
               <SourcesGrid sources={final.sources} />
             </div>
           </div>
         ) : partial ? (
           <div className="flex flex-col">
-            <div className="text-[11px] font-bold tracking-widest text-muted-foreground dark:text-[#a1a1aa] mb-4 flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-              DRAFTING RESPONSE
-            </div>
-            <h2 className="text-2xl font-semibold text-foreground dark:text-[#fafafa] mb-4">Initial Findings</h2>
+            <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">Drafting…</p>
             
-            <div className="relative max-h-60 sm:max-h-96 overflow-hidden">
-              <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/80 dark:text-[#d4d4d8] select-none typing-cursor font-sans">
+            <div className="relative max-h-48 sm:max-h-96 overflow-hidden">
+              <p className="text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap text-foreground/80 dark:text-[#d4d4d8] font-sans">
                 {partial}
               </p>
-              <div className="absolute bottom-0 left-0 right-0 h-20 sm:h-32 bg-gradient-to-t from-background via-background/90 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 left-0 right-0 h-16 sm:h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
             </div>
             
-            <div className="mt-6 sm:mt-8 space-y-3 opacity-60">
-              <div className="h-4 w-full bg-muted dark:bg-[#27272a] rounded animate-pulse" />
-              <div className="h-4 w-[90%] bg-muted dark:bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '100ms' }} />
-              <div className="h-4 w-[80%] bg-muted dark:bg-[#27272a] rounded animate-pulse" style={{ animationDelay: '200ms' }} />
+            <div className="mt-4 sm:mt-8 space-y-2.5 opacity-50">
+              <div className="h-3 sm:h-4 w-full bg-muted dark:bg-[#222] rounded" />
+              <div className="h-3 sm:h-4 w-[85%] bg-muted dark:bg-[#222] rounded" />
+              <div className="h-3 sm:h-4 w-[70%] bg-muted dark:bg-[#222] rounded" />
             </div>
           </div>
         ) : !error ? (
-          <div className="flex flex-col mt-4 space-y-5">
-            {/* Animated search progress */}
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-              <span className="text-sm text-muted-foreground">Connecting to agents…</span>
+          <div className="flex flex-col mt-2 space-y-3">
+            <p className="text-xs text-muted-foreground">Loading…</p>
+            <div className="space-y-2.5">
+              <div className="h-5 w-40 bg-muted dark:bg-[#222] rounded" />
+              <div className="h-3 w-full bg-muted dark:bg-[#222] rounded" />
+              <div className="h-3 w-[90%] bg-muted dark:bg-[#222] rounded" />
+              <div className="h-3 w-[75%] bg-muted dark:bg-[#222] rounded" />
             </div>
-            <div className="space-y-3">
-              <div className="h-6 w-48 glass-skeleton rounded-lg" />
-              <div className="h-4 w-full glass-skeleton rounded" />
-              <div className="h-4 w-5/6 glass-skeleton rounded" style={{ animationDelay: '200ms' }} />
-              <div className="h-4 w-4/6 glass-skeleton rounded" style={{ animationDelay: '400ms' }} />
-            </div>
-            <div className="gradient-progress-bar w-full mt-2" />
           </div>
         ) : null}
 
         {(() => {
           const followups = events.filter(e => e.type === 'reflection').flatMap(e => (e as any).followup_queries ?? []).slice(0, 3);
           return done && final && followups.length > 0 ? (
-            <div className="pt-12 fade-up-enhanced relative z-10" style={{ animationDelay: '700ms' }}>
-              <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground dark:text-[#a1a1aa] mb-4 flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5" />
-                Related questions
-              </h3>
+            <div className="pt-8 sm:pt-12 mt-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-3">Related</p>
               <div className="flex flex-wrap gap-2">
                 {followups.map((q: string, i: number) => (
                   <a
                     key={i}
                     href={`/results?q=${encodeURIComponent(q)}`}
-                    className="text-sm px-4 py-2 rounded-full bg-secondary dark:bg-[#18181b] border border-border dark:border-[#27272a] text-secondary-foreground dark:text-[#a1a1aa] hover:text-foreground dark:hover:text-[#fafafa] hover:border-accent dark:hover:border-[#3f3f46] transition-colors"
+                    className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-muted/50 dark:bg-[#1a1a1a] border border-border/50 dark:border-[#27272a] text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
                   >
                     {q}
                   </a>

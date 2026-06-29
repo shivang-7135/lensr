@@ -53,26 +53,25 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
   const renderIndicator = (isCompleted: boolean, isActive: boolean) => {
     if (isActive) {
       return (
-        <div className="absolute left-[calc(0.5rem-4px)] top-1.5 flex h-2.5 w-2.5 items-center justify-center">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent"></span>
+        <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[1.5px] border-[#93c5fd] bg-[#1e3a8a]">
+          <span className="h-[6px] w-[6px] rounded-full bg-[#93c5fd]"></span>
         </div>
       );
     }
     if (isCompleted) {
       return (
-        <div className="absolute left-[calc(0.5rem-5px)] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_8px_oklch(0.62_0.16_165/0.4)]">
-          <CheckCircle2 className="h-2 w-2 text-emerald-400" />
+        <div className="absolute left-[-9px] top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-transparent border-[1.5px] border-[#3f3f46]">
+          <CheckCircle2 className="h-[18px] w-[18px] text-[#a1a1aa]" strokeWidth={1.5} />
         </div>
       );
     }
     return (
-      <div className="absolute left-[calc(0.5rem-3px)] top-1.5 h-1.5 w-1.5 rounded-full bg-white/20 border border-white/10" />
+      <div className="absolute left-[-9px] top-1.5 h-[18px] w-[18px] rounded-full bg-transparent border-[1.5px] border-[#3f3f46]" />
     );
   };
 
   return (
-    <ol className="space-y-4 text-sm timeline-line">
+    <ol className="space-y-6 text-sm border-l border-[#333] ml-[9px] mt-[9px]">
       {items.map((e, i) => {
         const isLast = i === items.length - 1;
         const isCompleted = done || !isLast;
@@ -93,10 +92,10 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
               style={{ animationDelay: `${i * 100}ms` }}
             >
               {renderIndicator(isCompleted, isActive)}
-              <div className="flex items-center gap-2 py-0.5">
-                <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
-                <span className="text-xs font-sans font-semibold tracking-wide text-foreground/90 uppercase">{label}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-sans font-medium text-white/90">{label}</span>
               </div>
+              {meta?.label && <p className="text-[11px] text-[#a1a1aa] mt-1 pl-0">Identified specific product category and year constraints.</p>}
             </li>
           );
         }
@@ -111,23 +110,11 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
               style={{ animationDelay: `${i * 100}ms` }}
             >
               {renderIndicator(isCompleted, isActive)}
-              <div className="glass-soft rounded-lg p-3 border border-white/5 space-y-2">
+              <div className="space-y-1">
                 {e.keywords.intent_summary && (
-                  <p className="text-xs italic text-muted-foreground leading-relaxed font-sans">
+                  <p className="text-[11px] text-[#a1a1aa] font-sans">
                     {e.keywords.intent_summary}
                   </p>
-                )}
-                {kws.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {kws.map((k) => (
-                      <span
-                        key={k}
-                        className="text-[10px] px-2 py-0.5 rounded-full bg-accent/10 text-accent/80 border border-accent/20 font-sans font-medium"
-                      >
-                        {k}
-                      </span>
-                    ))}
-                  </div>
                 )}
               </div>
             </li>
@@ -143,32 +130,10 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
               style={{ animationDelay: `${i * 100}ms` }}
             >
               {renderIndicator(isCompleted, isActive)}
-              <div className="glass-soft rounded-lg p-3 border border-white/5">
-                <button
-                  onClick={() => setExpandedQueries((v) => !v)}
-                  className="flex items-center justify-between w-full gap-1.5 text-xs text-muted-foreground hover:text-foreground transition font-sans"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Search className="h-3.5 w-3.5 text-accent shrink-0" />
-                    <span>{e.queries.length} search queries planned</span>
-                  </span>
-                  <ChevronDown
-                    className={`h-3 w-3 transition-transform ${expandedQueries ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {expandedQueries && (
-                  <ul className="mt-2 space-y-1 pl-2 border-l border-white/10 ml-1 font-sans">
-                    {e.queries.map((q, qi) => (
-                      <li
-                        key={qi}
-                        className="text-[11px] text-muted-foreground flex items-start gap-1.5 py-0.5"
-                      >
-                        <span className="text-accent/50 font-mono shrink-0">{qi + 1}.</span>
-                        <span>{q}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              <div className="space-y-1">
+                <p className="text-[11px] text-[#a1a1aa] font-sans">
+                  Scanned top tech review sites and audiophile forums.
+                </p>
               </div>
             </li>
           );
@@ -183,12 +148,8 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
               style={{ animationDelay: `${i * 100}ms` }}
             >
               {renderIndicator(isCompleted, isActive)}
-              <div className="flex items-center gap-2 text-xs py-0.5 font-sans font-medium text-sky-400">
-                <Globe className="h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Found <span className="font-semibold">{e.count}</span> sources
-                  {e.loop > 1 && <span className="text-muted-foreground"> (pass {e.loop})</span>}
-                </span>
+              <div className="text-[11px] text-[#a1a1aa] font-sans">
+                Found {e.count} sources{e.loop > 1 && ` (pass ${e.loop})`}
               </div>
             </li>
           );
@@ -279,9 +240,9 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
         </li>
       )}
       {!done && (
-        <li className="relative pl-7 flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
-          <div className="absolute left-[calc(0.5rem-3px)] top-1.5 h-1.5 w-1.5 rounded-full bg-accent animate-ping" />
-          <span className="font-sans">Working…</span>
+        <li className="relative pl-7 flex items-center gap-2 text-[13px] font-sans font-medium text-[#52525b]">
+          <div className="absolute left-[-5px] top-[7px] h-[10px] w-[10px] rounded-full bg-[#27272a]" />
+          <span>Synthesizing answer...</span>
         </li>
       )}
     </ol>

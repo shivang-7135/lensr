@@ -398,31 +398,55 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         pipeline_span.set_attribute("intent", cfg.name)
         ctx = otel_trace.use_span(pipeline_span, end_on_exit=True)
         ctx.__enter__()
+    # Retrieve generic background search if available
+    try:
+        from ..router_graph import generic_search_task_var
+        generic_search_task = generic_search_task_var.get()
+    except LookupError:
+        generic_search_task = None
+
     # Start seed search immediately — no LLM round-trip needed
     seed_queries = cfg.seed_queries(query)[:2]
     seed_search_task = asyncio.create_task(_fanout_search(seed_queries))
 
     # Single combined LLM call: extract keywords + plan queries
     yield {"type": "stage", "stage": "plan"}
-    kw, planned_queries = await _combined_plan(query, cfg)
+    try:
+        kw, planned_queries = await asyncio.wait_for(_combined_plan(query, cfg), timeout=8.0)
+    except (asyncio.TimeoutError, Exception) as e:
+        logger.warning("Planner failed or timed out: %s. Falling back to seed queries.", e)
+        kw = {"keywords": [], "entities": [], "constraints": [], "intent_summary": "Fallback to base intent"}
+        planned_queries = cfg.seed_queries(query)[:3]
+        
     yield {"type": "keywords_extracted", "keywords": kw}
     yield {"type": "search_plan", "queries": planned_queries}
 
     # Collect seed results (should already be done while LLM was thinking)
     seed_results = await seed_search_task
+    generic_results = await generic_search_task if generic_search_task else []
 
     evidence: list[dict] = []
     seen_urls: set[str] = set()
 
-    # Merge seed results into evidence
-    for r in seed_results:
+    # Merge generic and seed results into evidence
+    for r in list(generic_results) + list(seed_results):
         url = r.get("url")
         if url and url not in seen_urls and len(evidence) < MAX_SOURCES:
             evidence.append(r)
             seen_urls.add(url)
+            
+    # ⚡ NEW: Early Fast partial answer!
+    # Stream top snippets immediately so the user sees something while the scraping and synthesis runs
+    top_snippets = [e.get("snippet", "").strip() for e in evidence[:3] if e.get("snippet", "").strip()]
+    if top_snippets:
+        yield {"type": "partial_answer", "delta": " ".join(top_snippets)[:400] + "\n\n"}
 
-    # Now run the LLM-planned queries (excluding any that overlap with seeds)
-    extra_queries = [q for q in planned_queries if q.lower() not in {s.lower() for s in seed_queries}]
+    # Start scraping seed results IMMEDIATELY in the background
+    seed_unscraped = [e for e in evidence if "body" not in e][:SCRAPE_TOP_N]
+    seed_scrape_task = asyncio.create_task(_scrape(seed_unscraped, len(seed_unscraped))) if seed_unscraped else None
+
+    # Now run the LLM-planned extra queries concurrently with seed scraping
+    extra_queries = [q for q in planned_queries if q.lower() not in {s.lower() for s in seed_queries} and q.lower() != query.lower()]
     if extra_queries:
         yield {"type": "stage", "stage": "search_loop_1"}
         for q in extra_queries:
@@ -441,15 +465,24 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         "sample": [{"title": r["title"], "url": r["url"]} for r in evidence[:5]],
     }
 
-    # Scrape top pages in parallel
-    unscraped = [e for e in evidence if "body" not in e][:SCRAPE_TOP_N]
-    if unscraped:
-        yield {"type": "scrape_progress", "count": len(unscraped)}
-        scraped = await _scrape(unscraped, len(unscraped))
+    # Gather the parallel seed scrape results
+    if seed_scrape_task:
+        yield {"type": "scrape_progress", "count": len(seed_unscraped)}
+        scraped = await seed_scrape_task
         by_url = {s["url"]: s for s in scraped}
         for i, e in enumerate(evidence):
             if e["url"] in by_url:
                 evidence[i] = by_url[e["url"]]
+                
+    # Scrape any new extra results if we still need more context
+    extra_unscraped = [e for e in evidence if "body" not in e][:max(0, SCRAPE_TOP_N - len(seed_unscraped))]
+    if extra_unscraped:
+        yield {"type": "scrape_progress", "count": len(extra_unscraped)}
+        extra_scraped = await _scrape(extra_unscraped, len(extra_unscraped))
+        by_url2 = {s["url"]: s for s in extra_scraped}
+        for i, e in enumerate(evidence):
+            if e["url"] in by_url2:
+                evidence[i] = by_url2[e["url"]]
 
     # Reflection loop — only when evidence is genuinely thin OR it's a research-heavy intent
     # Skip for lookup/simple queries to save 8-12s
@@ -491,11 +524,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
 
     yield {"type": "stage", "stage": "synthesize"}
 
-    # ⚡ Fast partial answer: stream top snippets immediately so the user sees
-    # something while the full LLM synthesis runs (saves perceived ~8-15s)
-    top_snippets = [e.get("snippet", "").strip() for e in evidence[:3] if e.get("snippet", "").strip()]
-    if top_snippets:
-        yield {"type": "partial_answer", "delta": " ".join(top_snippets)[:400] + "\n\n"}
+    # Partial answer has been moved to run earlier before scraping
 
     structured = await _synthesize(query, kw, evidence, cfg)
     sources = [{"title": e["title"], "url": e["url"]} for e in evidence[:10]]

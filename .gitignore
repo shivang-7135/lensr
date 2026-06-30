@@ -32,6 +32,9 @@ dist-ssr
 *.sw?
 .vercel
 .env
+.env.vercel
+*develop*.md
+develop.md
 
 # Python
 __pycache__/

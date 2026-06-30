@@ -127,7 +127,7 @@ export function GeneralResult({
           className="p-4 sm:p-5 glass-strong rounded-xl"
           style={{
             borderLeft: "3px solid",
-            borderImage: "linear-gradient(to bottom, oklch(0.6 0.22 270), oklch(0.65 0.22 300)) 1",
+            borderImage: "linear-gradient(to bottom, var(--primary), var(--accent)) 1",
           }}
         >
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-1.5">

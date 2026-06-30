@@ -15,11 +15,10 @@ Lensr classifies every query into one of **35 backend intents** and renders a pu
 
 **10 specialized result cards:** ShoppingResult, TripResult, PriceHistoryResult, InstaResult, MoviesResult, RecipesResult, BooksResult, PlacesResult, EventsResult + GeneralResult (fallback for all other intents).
 
-For every result we guarantee:
-
 1. **Real sources** — Every answer cites its web sources with clickable links.
 2. **External CTAs** — Amazon, Google Maps, Booking.com, Keepa, or publisher URLs — injected even when the LLM omits one.
 3. **Live SSE streaming** — intent → keywords + plan → parallel search → scrape → synthesize → final structured payload. Full pipeline visibility in the UI.
+4. **Dual Search Modes** — Choose between **Fast Mode** (bypasses planner and reflection loop for parallel, capped-source answers in <8-10s) and **Deep Mode** (runs multi-step search with deep LLM planning and data reflection).
 
 ---
 
@@ -74,20 +73,22 @@ For every result we guarantee:
 
 ## 3. Request flow (search)
 
-1. User submits a query on `/` or `/results`.
-2. Browser POSTs `/api/search` on the TanStack Start server.
+1. User submits a query on `/` or `/results` and selects the speed mode (**Fast** or **Deep**).
+2. Browser POSTs `/api/search` on the TanStack Start server with the query and the `fast_mode` flag.
 3. `src/routes/api/search.ts`:
    - Validates origin, body size (8 KB max), and query length (2000 chars).
-   - Proxies the SSE stream to the Python backend with `X-Backend-Secret`.
+   - Proxies the SSE stream to the Python backend with `X-Backend-Secret` and forwards the `fast_mode` parameter.
    - Returns 503 if `BACKEND_BASE_URL` is not configured.
 4. Python backend (`/search`):
    - Timing-safe auth check via `hmac.compare_digest`.
    - Validates query (`max_length=2000`).
    - Classifies intent with Haiku 4.5 (~1.5s).
-   - Runs the optimized adaptive pipeline (seed search in parallel with LLM planning).
+   - Runs the adaptive pipeline based on the selected mode:
+     - **Deep Mode**: Seeds search in parallel with LLM planner, fetches up to 8 sources, scrapes 4 pages, and executes a reasoning reflection loop.
+     - **Fast Mode**: Bypasses the LLM planner and reflection loop, runs the query and seed searches fully in parallel, caps scraping to the top 2 sources, and synthesizes answers in under 8-10 seconds.
 5. SSE events consumed by `ResultsStream` (with 90s client-side timeout):
    `intent_detected` → `keywords_extracted` → `search_plan` → `tool_call` / `search_results` / `scrape_progress` → `partial_answer` → `final` (structured payload + sources).
-6. The matching `*Result.tsx` card renders the structured payload; `SourcesGrid` + `ResearchPanel` show provenance.
+6. The matching `*Result.tsx` card renders the structured payload; `SourcesGrid` + `ResearchPanel` show provenance. On mobile, columns are stacked with results at the top (`flex-col-reverse`) to eliminate vertical layout shifts.
 
 ---
 
@@ -129,7 +130,7 @@ For every result we guarantee:
 | **Input validation** | Query max 2000 chars, body max 8 KB, file upload max 10 MB                                    |
 | **SSRF**             | Private IP blocklist (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost, metadata endpoints) |
 | **Error handling**   | Sanitized error messages to client, request IDs for server-side debugging                     |
-| **Secrets**          | Startup validation — refuses to start with insecure default in production                     |
+| **Secrets**          | Startup validation — refuses to start with insecure default; `.env` & `.env.vercel` are untracked and gitignored to prevent leaks |
 | **Docker**           | Non-root user, multi-stage build, `.dockerignore`                                             |
 | **Headers**          | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy                  |
 

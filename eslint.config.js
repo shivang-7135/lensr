@@ -15,6 +15,7 @@ export default tseslint.config(
       ".nitro",
       ".vercel",
       "node_modules",
+      "backend/.venv",
       "**/*.gen.ts",
     ],
   },

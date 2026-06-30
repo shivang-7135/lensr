@@ -122,17 +122,17 @@ Lensr classifies every query into one of **35 backend intents** and renders a pu
 
 ## 6. Security
 
-| Layer                | Protection                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| **Database**         | RLS on all tables, explicit GRANTs, `SECURITY DEFINER` helpers                                |
-| **API auth**         | Timing-safe (`hmac.compare_digest` / `crypto.timingSafeEqual`) shared secret                  |
-| **CORS**             | Origin allowlist (not `*` in production)                                                      |
-| **Input validation** | Query max 2000 chars, body max 8 KB, file upload max 10 MB                                    |
-| **SSRF**             | Private IP blocklist (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost, metadata endpoints) |
-| **Error handling**   | Sanitized error messages to client, request IDs for server-side debugging                     |
+| Layer                | Protection                                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Database**         | RLS on all tables, explicit GRANTs, `SECURITY DEFINER` helpers                                                                    |
+| **API auth**         | Timing-safe (`hmac.compare_digest` / `crypto.timingSafeEqual`) shared secret                                                      |
+| **CORS**             | Origin allowlist (not `*` in production)                                                                                          |
+| **Input validation** | Query max 2000 chars, body max 8 KB, file upload max 10 MB                                                                        |
+| **SSRF**             | Private IP blocklist (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost, metadata endpoints)                                     |
+| **Error handling**   | Sanitized error messages to client, request IDs for server-side debugging                                                         |
 | **Secrets**          | Startup validation — refuses to start with insecure default; `.env` & `.env.vercel` are untracked and gitignored to prevent leaks |
-| **Docker**           | Non-root user, multi-stage build, `.dockerignore`                                             |
-| **Headers**          | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy                  |
+| **Docker**           | Non-root user, multi-stage build, `.dockerignore`                                                                                 |
+| **Headers**          | X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy                                                      |
 
 ---
 

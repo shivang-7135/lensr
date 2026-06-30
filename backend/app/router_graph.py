@@ -214,7 +214,7 @@ async def _classify(query: str) -> Intent:
                 router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)]),
                 timeout=8.0,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Intent classification timed out — defaulting to 'general'")
             return "general"  # type: ignore[return-value]
         raw = (
@@ -255,7 +255,7 @@ async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]
     if fast_mode:
         try:
             cached = await asyncio.wait_for(cache_lookup(query, fast_mode=True), timeout=3.0)
-        except (asyncio.TimeoutError, Exception) as e:
+        except (TimeoutError, Exception) as e:
             logger.warning("Cache lookup skipped (timeout/error): %s", e)
             cached = None
 

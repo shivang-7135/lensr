@@ -127,8 +127,7 @@ export function GeneralResult({
           className="p-4 sm:p-5 glass-strong rounded-xl"
           style={{
             borderLeft: "3px solid",
-            borderImage:
-              "linear-gradient(to bottom, oklch(0.6 0.22 270), oklch(0.65 0.22 300)) 1",
+            borderImage: "linear-gradient(to bottom, oklch(0.6 0.22 270), oklch(0.65 0.22 300)) 1",
           }}
         >
           <div className="text-xs uppercase tracking-widest text-accent mb-2 flex items-center gap-1.5">
@@ -171,10 +170,7 @@ export function GeneralResult({
       {sections.length > 0 && (
         <div className="space-y-3">
           {sections.map((sec, idx) => (
-            <div
-              key={idx}
-              className="glass rounded-xl overflow-hidden"
-            >
+            <div key={idx} className="glass rounded-xl overflow-hidden">
               {sec.heading && (
                 <div
                   className="px-4 py-2.5 border-b border-border/20 flex items-center gap-2"

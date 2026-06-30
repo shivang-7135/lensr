@@ -61,51 +61,51 @@
 :root {
   --radius: 1rem;
 
-  --background: #F8FAFC;
+  --background: #f8fafc;
   --foreground: #020617;
 
-  --card: #FFFFFF;
+  --card: #ffffff;
   --card-foreground: #020617;
-  
-  --popover: #F1F5F9;
+
+  --popover: #f1f5f9;
   --popover-foreground: #020617;
 
-  --primary: #4F46E5;
-  --primary-foreground: #FFFFFF;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
 
-  --secondary: #F1F5F9;
+  --secondary: #f1f5f9;
   --secondary-foreground: #020617;
-  
-  --muted: #E2E8F0;
+
+  --muted: #e2e8f0;
   --muted-foreground: #475569;
 
-  --accent: #9333EA;
-  --accent-foreground: #FFFFFF;
+  --accent: #9333ea;
+  --accent-foreground: #ffffff;
 
-  --signal: #10B981;
-  --signal-foreground: #FFFFFF;
+  --signal: #10b981;
+  --signal-foreground: #ffffff;
 
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
 
-  --border: #CBD5E1;
-  --input: #E2E8F0;
-  --ring: #4F46E5;
+  --border: #cbd5e1;
+  --input: #e2e8f0;
+  --ring: #4f46e5;
 
-  --chart-1: #9333EA;
-  --chart-2: #4F46E5;
+  --chart-1: #9333ea;
+  --chart-2: #4f46e5;
   --chart-3: #c0c1ff;
   --chart-4: #ddb7ff;
-  --chart-5: #10B981;
+  --chart-5: #10b981;
 
-  --sidebar: #FFFFFF;
+  --sidebar: #ffffff;
   --sidebar-foreground: #020617;
-  --sidebar-primary: #4F46E5;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F1F5F9;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
   --sidebar-accent-foreground: #020617;
-  --sidebar-border: #CBD5E1;
-  --sidebar-ring: #4F46E5;
+  --sidebar-border: #cbd5e1;
+  --sidebar-ring: #4f46e5;
 
   /* Glassmorphism updates for light atmosphere */
   --glass-tint: rgba(255, 255, 255, 0.6);
@@ -119,7 +119,7 @@
     radial-gradient(ellipse 80% 60% at 15% 20%, rgba(79, 70, 229, 0.15), transparent 60%),
     radial-gradient(ellipse 70% 50% at 85% 80%, rgba(147, 51, 234, 0.15), transparent 60%),
     radial-gradient(ellipse 60% 60% at 60% 30%, rgba(192, 193, 255, 0.2), transparent 65%);
-  --aurora-base: #F8FAFC;
+  --aurora-base: #f8fafc;
   --aurora-blob-1: radial-gradient(circle, rgba(79, 70, 229, 0.15), transparent 70%);
   --aurora-blob-2: radial-gradient(circle, rgba(147, 51, 234, 0.15), transparent 70%);
   --aurora-blob-3: radial-gradient(circle, rgba(16, 185, 129, 0.1), transparent 70%);
@@ -129,11 +129,11 @@
 /* ============ DARK MODE (Luminous Dark) ============ */
 .dark {
   --background: #020617; /* surface-deep */
-  --foreground: #F8FAFC; /* text-primary */
+  --foreground: #f8fafc; /* text-primary */
 
   --card: #0b1326; /* surface */
   --card-foreground: #dae2fd; /* on-surface */
-  
+
   --popover: #131b2e; /* surface-container-low */
   --popover-foreground: #dae2fd;
 
@@ -142,11 +142,11 @@
 
   --secondary: #171f33; /* surface-container */
   --secondary-foreground: #dae2fd;
-  
-  --muted: #2d3449; /* surface-variant */
-  --muted-foreground: #94A3B8; /* text-secondary */
 
-  --accent: #4F46E5; /* accent-gradient-start */
+  --muted: #2d3449; /* surface-variant */
+  --muted-foreground: #94a3b8; /* text-secondary */
+
+  --accent: #4f46e5; /* accent-gradient-start */
   --accent-foreground: #dae2fd;
 
   --signal: #4edea3; /* tertiary */
@@ -159,8 +159,8 @@
   --input: #222a3d; /* surface-container-high */
   --ring: #8083ff; /* primary-container */
 
-  --chart-1: #9333EA; /* accent-gradient-end */
-  --chart-2: #4F46E5; /* accent-gradient-start */
+  --chart-1: #9333ea; /* accent-gradient-end */
+  --chart-2: #4f46e5; /* accent-gradient-start */
   --chart-3: #c0c1ff; /* primary */
   --chart-4: #ddb7ff; /* secondary */
   --chart-5: #4edea3; /* tertiary */
@@ -555,8 +555,12 @@
 }
 
 @keyframes gradient-flow {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
 }
 
 /* Gradient badge — numbered circle with gradient bg */
@@ -593,7 +597,7 @@
 @utility timeline-line {
   position: relative;
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0.5rem;
     top: 1.5rem;
@@ -612,7 +616,7 @@
 /* Typing cursor — blinking bar for partial text */
 @utility typing-cursor {
   &::after {
-    content: '▎';
+    content: "▎";
     display: inline;
     color: var(--accent);
     animation: cursor-blink 0.8s ease-in-out infinite;
@@ -621,17 +625,25 @@
 }
 
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Pulse glow — accent-colored breathing glow */
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 8px oklch(0.6 0.22 270 / 30%);
   }
   50% {
-    box-shadow: 0 0 20px oklch(0.6 0.22 270 / 60%), 0 0 40px oklch(0.65 0.22 300 / 30%);
+    box-shadow:
+      0 0 20px oklch(0.6 0.22 270 / 60%),
+      0 0 40px oklch(0.65 0.22 300 / 30%);
   }
 }
 
@@ -645,7 +657,7 @@
   border: 1px solid transparent;
   background-clip: padding-box;
   &::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: -1px;
     border-radius: inherit;
@@ -656,7 +668,9 @@
       oklch(0.65 0.22 300 / 30%),
       oklch(0.7 0.2 340 / 50%)
     );
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
     mask-composite: exclude;
     pointer-events: none;
   }
@@ -682,8 +696,12 @@
 
 /* Glass skeleton — shimmer loading placeholder */
 @keyframes glass-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @utility glass-skeleton {
@@ -701,8 +719,15 @@
 
 /* ─── Mobile breathing dot (used in MobileActivityFeed) ─────────────────── */
 @keyframes mobile-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50%       { transform: scale(1.6); opacity: 0.15; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.15;
+  }
 }
 
 .mobile-breathe {

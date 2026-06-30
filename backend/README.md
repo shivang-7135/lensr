@@ -26,13 +26,20 @@ The frontend route `src/routes/api/search.ts` proxies SSE from this service. If 
 
 ## Endpoints
 
-- `POST /search` — JSON `{ "query": string, "intent_hint"?: string }` → `text/event-stream`. Events:
-  - `intent_detected` `{intent, entities}`
-  - `tool_call` / `tool_result`
-  - `partial_answer` `{delta}`
-  - `final` `{markdown, sources, intent}`
-  - `error` `{message}`
+- `POST /search` — JSON `{ "query": string, "intent_hint"?: string, "fast_mode"?: boolean }` → `text/event-stream`.
+  - Passing `fast_mode: true` executes the parallel search path (bypasses planning LLM and reflection loop, limits scraping to 2 sources, and returns findings in under 8-10 seconds).
+  - Events emitted:
+    - `intent_detected` `{intent, entities}`
+    - `tool_call` / `tool_result`
+    - `partial_answer` `{delta}`
+    - `final` `{markdown, sources, intent}`
+    - `error` `{message}`
 - `GET /healthz`
+
+## Performance Optimizations
+
+1. **Planner Fallback Timeout**: The combined keyword-extraction and search-query planning LLM call (`_combined_plan`) is capped at an 8-second timeout. If it times out or fails, the orchestrator instantly falls back to predefined deterministic seed queries to prevent search freezes.
+2. **Fast Mode Pathway**: Enabled via the `fast_mode` parameter. It bypasses the LLM planner and reflection reasoning steps, runs the query and seed searches in parallel, caps scraping to the top 2 sources, and performs quick synthesis to complete the request within 10 seconds.
 
 ## Architecture
 

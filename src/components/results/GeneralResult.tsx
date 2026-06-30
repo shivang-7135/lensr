@@ -8,11 +8,11 @@ import { SafeImage } from "./SafeImage";
 
 // ─── Accent colours cycling through sections ────────────────────────────────
 const SECTION_ACCENTS = [
-  "oklch(0.60 0.22 270)", // violet
-  "oklch(0.58 0.22 230)", // blue
-  "oklch(0.60 0.20 160)", // teal
-  "oklch(0.62 0.20 50)",  // amber
-  "oklch(0.60 0.22 300)", // purple
+  "#4F46E5", // Indigo (accent-gradient-start)
+  "#9333EA", // Purple (accent-gradient-end)
+  "#4edea3", // Emerald (tertiary)
+  "#c0c1ff", // Light Blue (primary)
+  "#ddb7ff", // Light Purple (secondary)
 ];
 
 /** Build ReactMarkdown component map, with card-aware inline styles. */

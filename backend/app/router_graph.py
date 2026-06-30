@@ -209,7 +209,14 @@ async def _classify(query: str) -> Intent:
     from .observability import span
 
     with span("classify_intent", span_kind="CHAIN", input_value=query, attributes={"model": "haiku"}):
-        msg = await router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)])
+        try:
+            msg = await asyncio.wait_for(
+                router_llm().ainvoke([SystemMessage(CLASSIFY_SYS), HumanMessage(query)]),
+                timeout=8.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Intent classification timed out — defaulting to 'general'")
+            return "general"  # type: ignore[return-value]
         raw = (
             msg.content
             if isinstance(msg.content, str)
@@ -230,14 +237,32 @@ async def _classify(query: str) -> Intent:
 async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]:
     fast_mode_var.set(fast_mode)
 
-    # --- Semantic cache check (fast mode only — deep always runs fresh) ---
-    try:
-        cached = await cache_lookup(query, fast_mode=fast_mode)
-    except Exception:
-        cached = None
+    # ⚡ IMMEDIATELY emit a heartbeat so the UI knows the stream is alive.
+    # This prevents the frontend from showing "Planning research…" indefinitely
+    # while we wait for cache lookups and LLM classification to complete.
+    yield {"type": "heartbeat"}
+
+    # ⚡ Start search immediately — no LLM wait needed for this
+    generic_search_task = asyncio.create_task(google_search(query, num=5 if fast_mode else 3))
+    generic_search_task_var.set(generic_search_task)
+
+    # ⚡ Run cache lookup and intent classification CONCURRENTLY
+    # Both can run while the search is already fetching results in the background
+    classify_task = asyncio.create_task(_classify(query))
+
+    # --- Semantic cache check with timeout (fast mode only) ---
+    cached = None
+    if fast_mode:
+        try:
+            cached = await asyncio.wait_for(cache_lookup(query, fast_mode=True), timeout=3.0)
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning("Cache lookup skipped (timeout/error): %s", e)
+            cached = None
 
     if cached:
-        # Cache hit! Skip entire pipeline — return instantly
+        # Cache hit! Cancel the tasks we no longer need.
+        classify_task.cancel()
+        generic_search_task.cancel()
         intent = cached["intent"]
         yield {"type": "intent_detected", "intent": intent}
         yield {"type": "cache_hit", "cached": True}
@@ -255,16 +280,11 @@ async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]
         return
 
     # --- Cache miss: full pipeline ---
-    # ⚡ KEY OPTIMIZATION: Run intent classification AND initial search IN PARALLEL
-    # Classification takes ~1-2s, search takes ~1-2s. Running concurrently saves the full overlap.
-    classify_task = asyncio.create_task(_classify(query))
-    generic_search_task = asyncio.create_task(google_search(query, num=5 if fast_mode else 3))
-
-    # Store search task for the inner pipeline to pick up
-    generic_search_task_var.set(generic_search_task)
-
-    # Wait for classification (search continues in background)
-    intent = await classify_task
+    # Wait for classification (search is already running in background)
+    try:
+        intent = await classify_task
+    except Exception:
+        intent = "general"  # type: ignore[assignment]
     yield {"type": "intent_detected", "intent": intent}
 
     # Collect the final result for caching

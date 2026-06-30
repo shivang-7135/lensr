@@ -330,6 +330,8 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
       if (!line.startsWith("data: ")) return;
       try {
         const ev = JSON.parse(line.slice(6)) as StreamEvent;
+        // Heartbeat is an invisible keep-alive ping — skip adding to events array
+        if (ev.type === "heartbeat") return;
         setEvents((prev) => [...prev, ev]);
         if (ev.type === "intent_detected") setIntent(ev.intent);
         if (ev.type === "cache_hit") setCached(true);

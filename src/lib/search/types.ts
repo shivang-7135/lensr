@@ -279,4 +279,6 @@ export type StreamEvent =
       sources: Source[];
       cached?: boolean;
     }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "heartbeat" };
+

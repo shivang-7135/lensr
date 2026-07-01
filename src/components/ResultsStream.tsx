@@ -283,18 +283,16 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
   const [done, setDone] = useState(false);
   const [cached, setCached] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   // Elapsed time tracking
   const startTimeRef = useRef(Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [finalElapsed, setFinalElapsed] = useState<number | null>(null);
 
-  useEffect(() => {
-    startTimeRef.current = Date.now();
-    setElapsed(0);
-    setFinalElapsed(null);
-  }, [query, fastMode]);
+  // Generation counter: incremented on every new search so stale async
+  // closures (from React Strict Mode double-invocation or rapid re-renders)
+  // never overwrite state that belongs to a newer search.
+  const genRef = useRef(0);
 
   useEffect(() => {
     if (done || error) {
@@ -306,6 +304,11 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
   }, [done, error]);
 
   useEffect(() => {
+    // Bump generation so any in-flight callbacks from the previous search
+    // know they are stale and must not call setState.
+    const gen = ++genRef.current;
+
+    // Reset all state for the new search
     setEvents([]);
     setPartial("");
     setIntent(null);
@@ -313,20 +316,22 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
     setDone(false);
     setCached(false);
     setError(null);
+    startTimeRef.current = Date.now();
+    setElapsed(0);
+    setFinalElapsed(null);
+
     const ctl = new AbortController();
-    abortRef.current = ctl;
-    let aborted = false;
 
     // Timeout: abort if stream takes too long
     const timeout = setTimeout(() => {
-      if (!aborted) {
-        ctl.abort();
-        setError("Search timed out. Please try a simpler query.");
-        setDone(true);
-      }
+      if (genRef.current !== gen) return;
+      ctl.abort();
+      setError("Search timed out. Please try a simpler query.");
+      setDone(true);
     }, STREAM_TIMEOUT_MS);
 
     function processLine(line: string) {
+      if (genRef.current !== gen) return; // stale — discard
       if (!line.startsWith("data: ")) return;
       try {
         const ev = JSON.parse(line.slice(6)) as StreamEvent;
@@ -362,6 +367,7 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
           body: JSON.stringify({ query, fast_mode: fastMode }),
           signal: ctl.signal,
         });
+        if (genRef.current !== gen) return; // stale
         if (!resp.ok || !resp.body) {
           setError(`Request failed (${resp.status})`);
           setDone(true);
@@ -373,6 +379,11 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
         while (true) {
           const { done: rd, value } = await reader.read();
           if (rd) break;
+          if (genRef.current !== gen) {
+            // A newer search started — release the reader and bail out
+            await reader.cancel();
+            return;
+          }
           buf += dec.decode(value, { stream: true });
           let nl: number;
           while ((nl = buf.indexOf("\n\n")) !== -1) {
@@ -384,13 +395,15 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
           }
         }
         // Flush remaining buffer after stream ends
+        if (genRef.current !== gen) return;
         if (buf.trim()) {
           for (const line of buf.split("\n")) {
             processLine(line);
           }
         }
-        setDone(true);
+        if (genRef.current === gen) setDone(true);
       } catch (e) {
+        if (genRef.current !== gen) return;
         if ((e as Error).name !== "AbortError") {
           setError((e as Error).message ?? "Connection lost");
         }
@@ -400,7 +413,6 @@ export function ResultsStream({ query, fastMode = false }: { query: string; fast
     })();
 
     return () => {
-      aborted = true;
       clearTimeout(timeout);
       ctl.abort();
     };

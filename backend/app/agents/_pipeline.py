@@ -421,7 +421,7 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
         # Strategy: grab search results (already running in background from router),
         # fire additional seed queries in parallel, synthesize immediately from snippets.
         # This eliminates: (1) keyword extraction LLM call, (2) scraping wait (4s+), (3) reflection loop
-        yield {"type": "stage", "stage": "plan"}
+        # NOTE: stage:plan is already emitted by router_graph before intent classification.
 
         # Retrieve the generic search task that started during intent classification
         try:
@@ -513,8 +513,8 @@ async def run_pipeline(query: str, cfg: IntentConfig) -> AsyncIterator[dict]:
     seed_queries = cfg.seed_queries(query)[:2]
     seed_search_task = asyncio.create_task(_fanout_search(seed_queries))
 
+    # NOTE: stage:plan already emitted by router_graph before classification.
     # Single combined LLM call: extract keywords + plan queries
-    yield {"type": "stage", "stage": "plan"}
     try:
         kw, planned_queries = await asyncio.wait_for(_combined_plan(query, cfg), timeout=8.0)
     except (TimeoutError, Exception) as e:

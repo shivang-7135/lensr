@@ -64,7 +64,7 @@ export function AgentTimeline({ events, done }: { events: StreamEvent[]; done: b
       <ol className="space-y-2.5 text-sm list-none pl-0">
         <li className="flex items-center gap-2 animate-pulse text-muted-foreground font-sans text-xs pl-7 relative">
           <div className="absolute left-[calc(0.5rem-3px)] top-1.5 h-1.5 w-1.5 rounded-full bg-accent/60" />
-          Planning research…
+          Connecting to research engine…
         </li>
       </ol>
     );

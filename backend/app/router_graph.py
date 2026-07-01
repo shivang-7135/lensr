@@ -237,10 +237,10 @@ async def _classify(query: str) -> Intent:
 async def run_stream(query: str, fast_mode: bool = False) -> AsyncIterator[dict]:
     fast_mode_var.set(fast_mode)
 
-    # ⚡ IMMEDIATELY emit a heartbeat so the UI knows the stream is alive.
-    # This prevents the frontend from showing "Planning research…" indefinitely
-    # while we wait for cache lookups and LLM classification to complete.
-    yield {"type": "heartbeat"}
+    # ⚡ Emit a stage event IMMEDIATELY so the UI timeline activates right away.
+    # Without this the frontend sits on "Planning research…" for the full LLM
+    # classification round-trip (~2-5 s) before the first real event arrives.
+    yield {"type": "stage", "stage": "plan"}
 
     # ⚡ Start search immediately — no LLM wait needed for this
     generic_search_task = asyncio.create_task(google_search(query, num=5 if fast_mode else 3))
